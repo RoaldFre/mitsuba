@@ -39,7 +39,8 @@
 # Imported geometry and some default output types
 ^meshes/.*$
 ^textures/.*$
-^mitsuba.*.log$
+^(.*/)*mitsuba.*.log$
+^(.*/)*mtssrv.*.log$
 .*\.exr$
 
 # Eclipse CDT project files
@@ -47,3 +48,9 @@
 ^.settings/.*$
 ^.cproject$
 ^.project$
+
+# ctags files
+^(.*/)*tags$
+
+# core dumps
+^(.*/)*core$
