@@ -168,7 +168,13 @@ void SamplingIntegrator::renderBlock(const Scene *scene,
 
 		for (size_t j = 0; j<sampler->getSampleCount(); j++) {
 			rRec.newQuery(queryType, sensor->getMedium());
-			Point2 samplePos(Point2(offset) + Vector2(rRec.nextSample2D()));
+			Vector2 pixelOffset;
+			if (sampler->getSampleCount() == 1) {
+				pixelOffset = Vector2(0.5f);
+			} else {
+				pixelOffset = Vector2(rRec.nextSample2D());
+			}
+			Point2 samplePos = Point2(offset) + pixelOffset;
 
 			if (needsApertureSample)
 				apertureSample = rRec.nextSample2D();
