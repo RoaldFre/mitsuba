@@ -100,7 +100,7 @@ public:
 		   (direct-only) illumination */
 		m_maxDepth = props.getInteger("maxDepth", -1);
 		/* Depth to start using russian roulette */
-		m_rrDepth = props.getInteger("rrDepth", 3);
+		m_rrDepth = props.getInteger("rrDepth", 5);
 		/* Indicates if the gathering steps should be canceled if not enough photons are generated. */
 		m_autoCancelGathering = props.getBoolean("autoCancelGathering", true);
 		/* Maximum number of passes to render. -1 renders until the process is stopped. */
