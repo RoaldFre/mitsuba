@@ -46,6 +46,10 @@ MTS_NAMESPACE_BEGIN
  *	      which the implementation will start to use the ``russian roulette''
  *	      path termination criterion. \default{\code{5}}
  *	   }
+ *	   \parameter{rrForcedDepth}{\Integer}{Specifies the minimum path depth, after
+ *	      which the implementation will force the ``russian roulette'' path
+ *	      termination probabilities to be less than unity. \default{\code{100}}
+ *	   }
  * }
  *
  ** \renderings{
@@ -136,6 +140,7 @@ public:
 		/* Load the parameters / defaults */
 		m_config.maxDepth = props.getInteger("maxDepth", -1);
 		m_config.rrDepth = props.getInteger("rrDepth", 5);
+		m_config.rrForcedDepth = props.getInteger("rrForcedDepth", 100);
 		m_config.lightImage = props.getBoolean("lightImage", true);
 		m_config.sampleDirect = props.getBoolean("sampleDirect", true);
 		m_config.showWeighted = props.getBoolean("showWeighted", false);

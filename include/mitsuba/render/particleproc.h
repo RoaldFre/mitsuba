@@ -230,7 +230,7 @@ public:
 	MTS_DECLARE_CLASS()
 protected:
 	/// Protected constructor
-	ParticleTracer(int maxDepth, int rrDepth, bool emissionEvents);
+	ParticleTracer(int maxDepth, int rrDepth, int rrForcedDepth, bool emissionEvents);
 	/// Protected constructor
 	ParticleTracer(Stream *stream, InstanceManager *manager);
 	/// Virtual destructor
@@ -240,6 +240,7 @@ protected:
 	ref<Sampler> m_sampler;
 	int m_maxDepth;
 	int m_rrDepth;
+	int m_rrForcedDepth;
 	bool m_emissionEvents;
 };
 

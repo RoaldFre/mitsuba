@@ -46,7 +46,7 @@ struct BDPTConfiguration {
 	bool showWeighted;
 	size_t sampleCount;
 	Vector2i cropSize;
-	int rrDepth;
+	int rrDepth, rrForcedDepth;
 
 	inline BDPTConfiguration() { }
 
@@ -59,6 +59,7 @@ struct BDPTConfiguration {
 		sampleCount = stream->readSize();
 		cropSize = Vector2i(stream);
 		rrDepth = stream->readInt();
+		rrForcedDepth = stream->readInt();
 	}
 
 	inline void serialize(Stream *stream) const {
@@ -70,6 +71,7 @@ struct BDPTConfiguration {
 		stream->writeSize(sampleCount);
 		cropSize.serialize(stream);
 		stream->writeInt(rrDepth);
+		stream->writeInt(rrForcedDepth);
 	}
 
 	void dump() const {
@@ -82,6 +84,7 @@ struct BDPTConfiguration {
 		SLog(EDebug, "   Generate light image        : %s",
 			lightImage ? "yes" : "no");
 		SLog(EDebug, "   Russian roulette depth      : %i", rrDepth);
+		SLog(EDebug, "   Russian roulette force depth: %i", rrForcedDepth);
 		SLog(EDebug, "   Block size                  : %i", blockSize);
 		SLog(EDebug, "   Number of samples           : " SIZE_T_FMT, sampleCount);
 		#if BDPT_DEBUG == 1

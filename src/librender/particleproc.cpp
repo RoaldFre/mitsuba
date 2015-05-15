@@ -72,20 +72,23 @@ void ParticleProcess::increaseResultCount(size_t resultCount) {
 	m_progress->update(m_receivedResultCount);
 }
 
-ParticleTracer::ParticleTracer(int maxDepth, int rrDepth, bool emissionEvents)
-	: m_maxDepth(maxDepth), m_rrDepth(rrDepth), m_emissionEvents(emissionEvents) { }
+ParticleTracer::ParticleTracer(int maxDepth, int rrDepth, int rrForcedDepth, bool emissionEvents)
+	: m_maxDepth(maxDepth), m_rrDepth(rrDepth), m_rrForcedDepth(rrForcedDepth),
+	m_emissionEvents(emissionEvents) { }
 
 ParticleTracer::ParticleTracer(Stream *stream, InstanceManager *manager)
 	: WorkProcessor(stream, manager) {
 
 	m_maxDepth = stream->readInt();
 	m_rrDepth = stream->readInt();
+	m_rrForcedDepth = stream->readInt();
 	m_emissionEvents = stream->readBool();
 }
 
 void ParticleTracer::serialize(Stream *stream, InstanceManager *manager) const {
 	stream->writeInt(m_maxDepth);
 	stream->writeInt(m_rrDepth);
+	stream->writeInt(m_rrForcedDepth);
 	stream->writeBool(m_emissionEvents);
 }
 
@@ -253,10 +256,12 @@ void ParticleTracer::process(const WorkUnit *workUnit, WorkResult *workResult,
 
 			if (depth++ >= m_rrDepth) {
 				/* Russian roulette: try to keep path weights equal to one,
-				   Stop with at least some probability to avoid
-				   getting stuck (e.g. due to total internal reflection) */
-
-				Float q = std::min(throughput.max(), (Float) 0.95f);
+				   while accounting for the solid angle compression at refractive
+				   index boundaries. For depths greater than m_rrForcedDepth:
+				   stop with at least some probability to avoid getting stuck
+				   (e.g. due to total internal reflection) */
+				Float qMax = m_rrForcedDepth > 0 && depth >= m_rrForcedDepth ? 0.95f : 1.f;
+				Float q = std::min(throughput.max(), qMax);
 				if (m_sampler->next1D() >= q)
 					break;
 				throughput /= q;

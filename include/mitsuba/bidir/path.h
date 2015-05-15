@@ -94,6 +94,9 @@ public:
 	 *     Depth to start using russian roulette
 	 *     (<tt>-1</tt>=never, <tt>0</tt>=starting at the first
 	 *     bounce, and so on)
+	 * \param rrForcedDepth
+	 *     Depth to begin forcing non-zero termination probability for 
+	 *     russian roulette
 	 * \param mode
 	 *     Denotes whether radiance or importance are being transported
 	 * \param pool
@@ -102,7 +105,7 @@ public:
 	 * \return The number of successful steps performed by the random walk.
 	 */
 	int randomWalk(const Scene *scene, Sampler *sampler,
-		int nSteps, int rrStart, ETransportMode mode,
+		int nSteps, int rrStart, int rrForcedDepth, ETransportMode mode,
 		MemoryPool &pool);
 
 	/**
@@ -122,6 +125,9 @@ public:
 	 *     Depth to start using russian roulette
 	 *     (<tt>-1</tt>=never, <tt>0</tt>=starting at the first
 	 *     bounce, and so on)
+	 * \param rrForcedDepth
+	 *     Depth to begin forcing non-zero termination probability for 
+	 *     russian roulette
 	 * \param pool
 	 *     Reference to a memory pool that will be used to allocate
 	 *     edges and vertices.
@@ -129,7 +135,7 @@ public:
 	 */
 	int randomWalkFromPixel(const Scene *scene, Sampler *sampler,
 		int nSteps, const Point2i &pixelPosition, int rrStart,
-		MemoryPool &pool);
+		int rrForcedDepth, MemoryPool &pool);
 
 	/**
 	 * \brief Perform two random walks on an emitter and sensor subpath
@@ -165,6 +171,9 @@ public:
 	 *     Depth to start using russian roulette
 	 *     (<tt>-1</tt>=never, <tt>0</tt>=starting at the first
 	 *     bounce, and so on)
+	 * \param rrForcedDepth
+	 *     Depth to begin forcing non-zero termination probability for 
+	 *     russian roulette
 	 * \param pool
 	 *     Reference to a memory pool that will be used to allocate
 	 *     edges and vertices.
@@ -174,7 +183,7 @@ public:
 	static std::pair<int, int> alternatingRandomWalkFromPixel(const Scene *scene,
 		Sampler *sampler, Path &emitterPath, int nEmitterSteps,
 		Path &sensorPath, int nSensorSteps, const Point2i &pixelPosition,
-		int rrStart, MemoryPool &pool);
+		int rrStart, int rrForcedDepth, MemoryPool &pool);
 
 	/**
 	 * \brief Verify the cached values stored in this path

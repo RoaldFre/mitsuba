@@ -112,7 +112,8 @@ public:
 				/* Perform a random walk using alternating steps on each path */
 				Path::alternatingRandomWalkFromPixel(m_scene, m_sampler,
 					emitterSubpath, emitterDepth, sensorSubpath,
-					sensorDepth, offset, m_config.rrDepth, m_pool);
+					sensorDepth, offset, m_config.rrDepth, m_config.rrForcedDepth,
+					m_pool);
 
 				evaluate(result, emitterSubpath, sensorSubpath);
 

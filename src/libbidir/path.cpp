@@ -28,7 +28,7 @@ void Path::initialize(const Scene *scene, Float time,
 }
 
 int Path::randomWalk(const Scene *scene, Sampler *sampler,
-		int nSteps, int rrStart, ETransportMode mode,
+		int nSteps, int rrStart, int rrForcedDepth, ETransportMode mode,
 		MemoryPool &pool) {
 	/* Determine the relevant edge and vertex to start the random walk */
 	PathVertex *curVertex  = m_vertices[m_vertices.size()-1],
@@ -42,8 +42,11 @@ int Path::randomWalk(const Scene *scene, Sampler *sampler,
 		PathVertex *succVertex = pool.allocVertex();
 		PathEdge *succEdge = pool.allocEdge();
 
+		Float rrMaxProb = -1.0;
+		if (rrStart != -1 && i >= rrStart)
+			rrMaxProb = i >= rrForcedDepth ? 0.95f : 1.0f;
 		if (!curVertex->sampleNext(scene, sampler, predVertex, predEdge, succEdge,
-				succVertex, mode, rrStart != -1 && i >= rrStart, &throughput)) {
+				succVertex, mode, rrMaxProb, &throughput)) {
 			pool.release(succVertex);
 			pool.release(succEdge);
 			return i;
@@ -60,7 +63,8 @@ int Path::randomWalk(const Scene *scene, Sampler *sampler,
 }
 
 int Path::randomWalkFromPixel(const Scene *scene, Sampler *sampler,
-		int nSteps, const Point2i &pixelPosition, int rrStart, MemoryPool &pool) {
+		int nSteps, const Point2i &pixelPosition, int rrStart,
+		int rrForcedDepth, MemoryPool &pool) {
 
 	PathVertex *v1 = pool.allocVertex(), *v2 = pool.allocVertex();
 	PathEdge *e0 = pool.allocEdge(), *e1 = pool.allocEdge();
@@ -94,8 +98,11 @@ int Path::randomWalkFromPixel(const Scene *scene, Sampler *sampler,
 		PathVertex *succVertex = pool.allocVertex();
 		PathEdge *succEdge = pool.allocEdge();
 
+		Float rrMaxProb = -1.0;
+		if (rrStart != -1 && t >= rrStart)
+			rrMaxProb = t >= rrForcedDepth ? 0.95f : 1.0f;
 		if (!curVertex->sampleNext(scene, sampler, predVertex, predEdge, succEdge,
-				succVertex, ERadiance, rrStart != -1 && t >= rrStart, &throughput)) {
+				succVertex, ERadiance, rrMaxProb, &throughput)) {
 			pool.release(succVertex);
 			pool.release(succEdge);
 			return t;
@@ -114,7 +121,7 @@ int Path::randomWalkFromPixel(const Scene *scene, Sampler *sampler,
 
 std::pair<int, int> Path::alternatingRandomWalkFromPixel(const Scene *scene, Sampler *sampler,
 		Path &emitterPath, int nEmitterSteps, Path &sensorPath, int nSensorSteps,
-		const Point2i &pixelPosition, int rrStart, MemoryPool &pool) {
+		const Point2i &pixelPosition, int rrStart, int rrForcedDepth, MemoryPool &pool) {
 	/* Determine the relevant edges and vertices to start the random walk */
 	PathVertex *curVertexS  = emitterPath.vertex(0),
 	           *curVertexT  = sensorPath.vertex(0),
@@ -155,9 +162,12 @@ std::pair<int, int> Path::alternatingRandomWalkFromPixel(const Scene *scene, Sam
 			PathVertex *succVertexT = pool.allocVertex();
 			PathEdge *succEdgeT = pool.allocEdge();
 
+			Float rrMaxProb = -1.0;
+			if (rrStart != -1 && t >= rrStart)
+				rrMaxProb = t >= rrForcedDepth ? 0.95f : 1.0f;
 			if (curVertexT->sampleNext(scene, sampler, predVertexT,
 					predEdgeT, succEdgeT, succVertexT, ERadiance,
-					rrStart != -1 && t >= rrStart, &throughputT)) {
+					rrMaxProb, &throughputT)) {
 				sensorPath.append(succEdgeT, succVertexT);
 				predVertexT = curVertexT;
 				curVertexT = succVertexT;
@@ -176,9 +186,12 @@ std::pair<int, int> Path::alternatingRandomWalkFromPixel(const Scene *scene, Sam
 			PathVertex *succVertexS = pool.allocVertex();
 			PathEdge *succEdgeS = pool.allocEdge();
 
+			Float rrMaxProb = -1.0;
+			if (rrStart != -1 && s >= rrStart)
+				rrMaxProb = s >= rrForcedDepth ? 0.95f : 1.0f;
 			if (curVertexS->sampleNext(scene, sampler, predVertexS,
 					predEdgeS, succEdgeS, succVertexS, EImportance,
-					rrStart != -1 && s >= rrStart, &throughputS)) {
+					rrMaxProb, &throughputS)) {
 				emitterPath.append(succEdgeS, succVertexS);
 				predVertexS = curVertexS;
 				curVertexS = succVertexS;

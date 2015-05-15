@@ -57,6 +57,10 @@ MTS_NAMESPACE_BEGIN
  *	      which the implementation will start to use the ``russian roulette''
  *	      path termination criterion. \default{\code{5}}
  *	   }
+ *	   \parameter{rrForcedDepth}{\Integer}{Specifies the minimum path depth, after
+ *	      which the implementation will force the ``russian roulette'' path
+ *	      termination probabilities to be less than unity. \default{\code{100}}
+ *	   }
  *	   \parameter{luminanceSamples}{\Integer}{
  *	      MLT-type algorithms create output images that are only
  *	      \emph{relative}. The algorithm can e.g. determine that a certain pixel
@@ -161,6 +165,9 @@ public:
 
 		/* Depth to begin using russian roulette (set to -1 to disable) */
 		m_config.rrDepth = props.getInteger("rrDepth", 5);
+
+		/* Depth to begin forcing russian roulette (set to -1 to disable) */
+		m_config.rrForcedDepth = props.getInteger("rrForcedDepth", 100);
 
 		/* If set to <tt>true</tt>, the MLT algorithm runs on top of a
 		   bidirectional path tracer with multiple importance sampling.
@@ -350,7 +357,7 @@ public:
 		ref<ReplayableSampler> rplSampler = new ReplayableSampler();
 		ref<PathSampler> pathSampler = new PathSampler(m_config.technique, scene,
 			rplSampler, rplSampler, rplSampler, m_config.maxDepth, m_config.rrDepth,
-			m_config.separateDirect, m_config.directSampling);
+			m_config.rrForcedDepth, m_config.separateDirect, m_config.directSampling);
 
 		ref<PSSMLTProcess> process = new PSSMLTProcess(job, queue,
 				m_config, directImage, pathSeeds);

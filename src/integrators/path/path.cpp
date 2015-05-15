@@ -36,6 +36,10 @@ static StatsCounter avgPathLength("Path tracer", "Average path length", EAverage
  *	      which the implementation will start to use the ``russian roulette''
  *	      path termination criterion. \default{\code{5}}
  *	   }
+ *	   \parameter{rrForcedDepth}{\Integer}{Specifies the minimum path depth, after
+ *	      which the implementation will force the ``russian roulette'' path
+ *	      termination probabilities to be less than unity. \default{\code{100}}
+ *	   }
  *     \parameter{strictNormals}{\Boolean}{Be strict about potential
  *        inconsistencies involving shading normals? See the description below
  *        for details.\default{no, i.e. \code{false}}
@@ -276,10 +280,11 @@ public:
 			if (rRec.depth++ >= m_rrDepth) {
 				/* Russian roulette: try to keep path weights equal to one,
 				   while accounting for the solid angle compression at refractive
-				   index boundaries. Stop with at least some probability to avoid
-				   getting stuck (e.g. due to total internal reflection) */
-
-				Float q = std::min(throughput.max() * eta * eta, (Float) 0.95f);
+				   index boundaries. For depths greater than m_rrForcedDepth:
+				   stop with at least some probability to avoid getting stuck
+				   (e.g. due to total internal reflection) */
+				Float qMax = m_rrForcedDepth > 0 && rRec.depth >= m_rrForcedDepth ? 0.95f : 1.f;
+				Float q = std::min(throughput.max() * eta * eta, qMax);
 				if (rRec.nextSample1D() >= q)
 					break;
 				throughput /= q;
@@ -308,6 +313,7 @@ public:
 		oss << "MIPathTracer[" << endl
 			<< "  maxDepth = " << m_maxDepth << "," << endl
 			<< "  rrDepth = " << m_rrDepth << "," << endl
+			<< "  rrForcedDepth = " << m_rrForcedDepth << "," << endl
 			<< "  strictNormals = " << m_strictNormals << endl
 			<< "]";
 		return oss.str();

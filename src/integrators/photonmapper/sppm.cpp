@@ -48,6 +48,10 @@ MTS_NAMESPACE_BEGIN
  *	      which the implementation will start to use the ``russian roulette''
  *	      path termination criterion. \default{\code{5}}
  *	   }
+ *	   \parameter{rrForcedDepth}{\Integer}{Specifies the minimum path depth, after
+ *	      which the implementation will force the ``russian roulette'' path
+ *	      termination probabilities to be less than unity. \default{\code{100}}
+ *	   }
  *     \parameter{maxPasses}{\Integer}{Maximum number of passes to render (where \code{-1}
  *        corresponds to rendering until stopped manually). \default{\code{-1}}}
  * }
@@ -101,6 +105,8 @@ public:
 		m_maxDepth = props.getInteger("maxDepth", -1);
 		/* Depth to start using russian roulette */
 		m_rrDepth = props.getInteger("rrDepth", 5);
+		/* Depth to start forcing russian roulette */
+		m_rrForcedDepth = props.getInteger("rrForcedDepth", 100);
 		/* Indicates if the gathering steps should be canceled if not enough photons are generated. */
 		m_autoCancelGathering = props.getBoolean("autoCancelGathering", true);
 		/* Maximum number of passes to render. -1 renders until the process is stopped. */
@@ -318,8 +324,8 @@ public:
 		/* Generate the global photon map */
 		ref<GatherPhotonProcess> proc = new GatherPhotonProcess(
 			GatherPhotonProcess::EAllSurfacePhotons, m_photonCount,
-			m_granularity, m_maxDepth == -1 ? -1 : m_maxDepth-1, m_rrDepth, true,
-			m_autoCancelGathering, job);
+			m_granularity, m_maxDepth == -1 ? -1 : m_maxDepth-1,
+			m_rrDepth, m_rrForcedDepth, true, m_autoCancelGathering, job);
 
 		proc->bindResource("scene", sceneResID);
 		proc->bindResource("sensor", sensorResID);
@@ -385,6 +391,7 @@ public:
 		oss << "SPPMIntegrator[" << endl
 			<< "  maxDepth = " << m_maxDepth << "," << endl
 			<< "  rrDepth = " << m_rrDepth << "," << endl
+			<< "  rrForcedDepth = " << m_rrForcedDepth << "," << endl
 			<< "  initialRadius = " << m_initialRadius << "," << endl
 			<< "  alpha = " << m_alpha << "," << endl
 			<< "  photonCount = " << m_photonCount << "," << endl
@@ -402,7 +409,7 @@ private:
 	ref<Bitmap> m_bitmap;
 	Float m_initialRadius, m_alpha;
 	int m_photonCount, m_granularity;
-	int m_maxDepth, m_rrDepth;
+	int m_maxDepth, m_rrDepth, m_rrForcedDepth;
 	size_t m_totalEmitted, m_totalPhotons;
 	bool m_running;
 	bool m_autoCancelGathering;

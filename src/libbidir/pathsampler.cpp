@@ -27,17 +27,18 @@ MTS_NAMESPACE_BEGIN
 
 PathSampler::PathSampler(ETechnique technique, const Scene *scene, Sampler *sensorSampler,
 		Sampler *emitterSampler, Sampler *directSampler, int maxDepth, int rrDepth,
-		bool excludeDirectIllum,  bool sampleDirect, bool lightImage)
+		int rrForcedDepth, bool excludeDirectIllum,  bool sampleDirect, bool lightImage)
 	: m_technique(technique), m_scene(scene), m_emitterSampler(emitterSampler),
 	  m_sensorSampler(sensorSampler), m_directSampler(directSampler), m_maxDepth(maxDepth),
-	  m_rrDepth(rrDepth), m_excludeDirectIllum(excludeDirectIllum), m_sampleDirect(sampleDirect),
-      m_lightImage(lightImage) {
+	  m_rrDepth(rrDepth), m_rrForcedDepth(rrForcedDepth), m_excludeDirectIllum(excludeDirectIllum),
+	  m_sampleDirect(sampleDirect), m_lightImage(lightImage) {
 
 	if (technique == EUnidirectional) {
 		/* Instantiate a volumetric path tracer */
 		Properties props("volpath");
 		props.setInteger("maxDepth", maxDepth);
 		props.setInteger("rrDepth", rrDepth);
+		props.setInteger("rrForcedDepth", rrForcedDepth);
 		m_integrator = static_cast<SamplingIntegrator *> (PluginManager::getInstance()->
 			createObject(MTS_CLASS(SamplingIntegrator), props));
 	}
@@ -76,14 +77,14 @@ void PathSampler::sampleSplats(const Point2i &offset, SplatList &list) {
 
 				/* Perform two random walks from the sensor and emitter side */
 				m_emitterSubpath.randomWalk(m_scene, m_emitterSampler, m_emitterDepth,
-						m_rrDepth, EImportance, m_pool);
+						m_rrDepth, m_rrForcedDepth, EImportance, m_pool);
 
 				if (offset == Point2i(-1))
 					m_sensorSubpath.randomWalk(m_scene, m_sensorSampler,
-						m_sensorDepth, m_rrDepth, ERadiance, m_pool);
+						m_sensorDepth, m_rrDepth, m_rrForcedDepth, ERadiance, m_pool);
 				else
 					m_sensorSubpath.randomWalkFromPixel(m_scene, m_sensorSampler,
-						m_sensorDepth, offset, m_rrDepth, m_pool);
+						m_sensorDepth, offset, m_rrDepth, m_rrForcedDepth, m_pool);
 
 				/* Compute the combined weights along the two subpaths */
 				Spectrum *importanceWeights = (Spectrum *) alloca(m_emitterSubpath.vertexCount() * sizeof(Spectrum)),
@@ -326,14 +327,14 @@ void PathSampler::samplePaths(const Point2i &offset, PathCallback &callback) {
 
 	/* Perform two random walks from the sensor and emitter side */
 	m_emitterSubpath.randomWalk(m_scene, m_emitterSampler, m_emitterDepth,
-			m_rrDepth, EImportance, m_pool);
+			m_rrDepth, m_rrForcedDepth, EImportance, m_pool);
 
 	if (offset == Point2i(-1))
 		m_sensorSubpath.randomWalk(m_scene, m_sensorSampler,
-			m_sensorDepth, m_rrDepth, ERadiance, m_pool);
+			m_sensorDepth, m_rrDepth, m_rrForcedDepth, ERadiance, m_pool);
 	else
 		m_sensorSubpath.randomWalkFromPixel(m_scene, m_sensorSampler,
-			m_sensorDepth, offset, m_rrDepth, m_pool);
+			m_sensorDepth, offset, m_rrDepth, m_rrForcedDepth, m_pool);
 
 	/* Compute the combined weights along the two subpaths */
 	Spectrum *importanceWeights = (Spectrum *) alloca(m_emitterSubpath.vertexCount() * sizeof(Spectrum)),

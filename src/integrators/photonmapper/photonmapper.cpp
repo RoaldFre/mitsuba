@@ -54,6 +54,10 @@ MTS_NAMESPACE_BEGIN
  *	      which the implementation will start to use the ``russian roulette''
  *	      path termination criterion. \default{\code{5}}
  *	   }
+ *	   \parameter{rrForcedDepth}{\Integer}{Specifies the minimum path depth, after
+ *	      which the implementation will force the ``russian roulette'' path
+ *	      termination probabilities to be less than unity. \default{\code{100}}
+ *	   }
  * }
  * This plugin implements the two-pass photon mapping algorithm as proposed by Jensen \cite{Jensen1996Global}.
  * The implementation partitions the illumination into three different classes (diffuse, caustic, and volumetric),
@@ -95,6 +99,8 @@ public:
 		m_glossySamples = props.getInteger("glossySamples", 32);
 		/* Depth to start using russian roulette when tracing photons */
 		m_rrDepth = props.getInteger("rrDepth", 5);
+		/* Depth to start forcing russian roulette when tracing photons */
+		m_rrForcedDepth = props.getInteger("rrForcedDepth", 100);
 		/* Longest visualized path length (\c -1 = infinite).
 		   A value of \c 1 will visualize only directly visible light sources.
 		   \c 2 will lead to single-bounce (direct-only) illumination, and so on. */
@@ -157,6 +163,7 @@ public:
 		m_maxDepth = stream->readInt();
 		m_maxSpecularDepth = stream->readInt();
 		m_rrDepth = stream->readInt();
+		m_rrForcedDepth = stream->readInt();
 		m_globalPhotons = stream->readSize();
 		m_causticPhotons = stream->readSize();
 		m_volumePhotons = stream->readSize();
@@ -189,6 +196,7 @@ public:
 		stream->writeInt(m_maxDepth);
 		stream->writeInt(m_maxSpecularDepth);
 		stream->writeInt(m_rrDepth);
+		stream->writeInt(m_rrForcedDepth);
 		stream->writeSize(m_globalPhotons);
 		stream->writeSize(m_causticPhotons);
 		stream->writeSize(m_volumePhotons);
@@ -256,8 +264,8 @@ public:
 			/* Generate the global photon map */
 			ref<GatherPhotonProcess> proc = new GatherPhotonProcess(
 				GatherPhotonProcess::ESurfacePhotons, m_globalPhotons,
-				m_granularity, m_maxDepth-1, m_rrDepth, m_gatherLocally,
-				m_autoCancelGathering, job);
+				m_granularity, m_maxDepth-1, m_rrDepth, m_rrForcedDepth,
+				m_gatherLocally, m_autoCancelGathering, job);
 
 			proc->bindResource("scene", sceneResID);
 			proc->bindResource("sensor", sensorResID);
@@ -287,8 +295,8 @@ public:
 			/* Generate the caustic photon map */
 			ref<GatherPhotonProcess> proc = new GatherPhotonProcess(
 				GatherPhotonProcess::ECausticPhotons, m_causticPhotons,
-				m_granularity, m_maxDepth-1, m_rrDepth, m_gatherLocally,
-				m_autoCancelGathering, job);
+				m_granularity, m_maxDepth-1, m_rrDepth, m_rrForcedDepth,
+				m_gatherLocally, m_autoCancelGathering, job);
 
 			proc->bindResource("scene", sceneResID);
 			proc->bindResource("sensor", sensorResID);
@@ -319,8 +327,8 @@ public:
 			/* Generate the volume photon map */
 			ref<GatherPhotonProcess> proc = new GatherPhotonProcess(
 				GatherPhotonProcess::EVolumePhotons, volumePhotons,
-				m_granularity, m_maxDepth-1, m_rrDepth, m_gatherLocally,
-				m_autoCancelGathering, job);
+				m_granularity, m_maxDepth-1, m_rrDepth, m_rrForcedDepth,
+				m_gatherLocally, m_autoCancelGathering, job);
 
 			proc->bindResource("scene", sceneResID);
 			proc->bindResource("sensor", sensorResID);
@@ -650,6 +658,7 @@ public:
 			<< "  maxDepth = " << m_maxDepth << "," << endl
 			<< "  maxSpecularDepth = " << m_maxSpecularDepth << "," << endl
 			<< "  rrDepth = " << m_rrDepth << "," << endl
+			<< "  rrForcedDepth = " << m_rrForcedDepth << "," << endl
 			<< "  directSamples = " << m_directSamples << "," << endl
 			<< "  glossySamples = " << m_glossySamples << "," << endl
 			<< "  globalPhotons = " << m_globalPhotons << "," << endl
@@ -685,7 +694,7 @@ private:
 	Float m_causticLookupRadiusRel, m_causticLookupRadius;
 	Float m_invEmitterSamples, m_invGlossySamples;
 	int m_granularity, m_directSamples, m_glossySamples;
-	int m_rrDepth, m_maxDepth, m_maxSpecularDepth;
+	int m_rrDepth, m_rrForcedDepth, m_maxDepth, m_maxSpecularDepth;
 	bool m_gatherLocally, m_autoCancelGathering;
 	bool m_hideEmitters;
 };

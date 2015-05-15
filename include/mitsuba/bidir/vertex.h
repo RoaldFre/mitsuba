@@ -258,10 +258,18 @@ struct MTS_EXPORT_BIDIR PathVertex {
 	 *     with information about the successor vertex
 	 * \param mode
 	 *     Specifies whether radiance or importance is being transported
-	 * \param russianRoulette
-	 *     Should russian roulette be used while sampling the successor?
-	 *     Note that the effects of this are only captured in the \c rrWeight
-	 *     field -- the \ref weight and \ref pdf fields intentionally remain unchanged.
+	 * \param rrMaxProb
+	 *     Controls how russian roulette should be used while sampling the
+	 *     successor. For values less than zero, russian roulette sampling
+	 *     is disabled (this is the default). For positive values, russian
+	 *     roulette is enabled on the throughput and the given rrMaxProb is
+	 *     used as the maximum continuation probability (i.e. there is
+	 *     always a guaranteed probability of 1 - \c rrMaxProb of
+	 *     terminating the path, regardless of how high the throughput may
+	 *     be -- setting \c rrMaxProb to 1 disables forced termination).
+	 *     Note that the effects of russian roulette are only captured in
+	 *     the \c rrWeight field -- the \ref weight and \ref pdf fields
+	 *     intentionally remain unchanged.
 	 * \param throughput
 	 *     If russian roulette is active, this parameter should point to a
 	 *     spectrum value that is used to record the aggregate path weight
@@ -272,7 +280,7 @@ struct MTS_EXPORT_BIDIR PathVertex {
 	bool sampleNext(const Scene *scene, Sampler *sampler,
 		const PathVertex *pred, const PathEdge *predEdge,
 		PathEdge *succEdge, PathVertex *succ,
-		ETransportMode mode, bool russianRoulette = false,
+		ETransportMode mode, Float rrMaxProb = -1.0f,
 		Spectrum *throughput = NULL);
 
 	/**

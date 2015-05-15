@@ -126,7 +126,7 @@ bool BidirectionalMutator::sampleMutation(
 	proposal.vertex(l) = proposal.vertex(l)->clone(m_pool);
 
 	/* Perform a random walk from the emitter direction */
-	if (proposal.randomWalk(m_scene, m_sampler, s, -1, EImportance, m_pool) != s) {
+	if (proposal.randomWalk(m_scene, m_sampler, s, -1, 0, EImportance, m_pool) != s) {
 		proposal.release(l, proposal.vertexCount(), m_pool);
 		return false;
 	}
@@ -136,7 +136,7 @@ bool BidirectionalMutator::sampleMutation(
 	m_tempPath.append(source, m, k+1, true);
 	m_tempPath.vertex(k-m) = m_tempPath.vertex(k-m)->clone(m_pool);
 
-	if (m_tempPath.randomWalk(m_scene, m_sampler, t, -1, ERadiance, m_pool) != t) {
+	if (m_tempPath.randomWalk(m_scene, m_sampler, t, -1, 0, ERadiance, m_pool) != t) {
 		proposal.release(l, proposal.vertexCount(), m_pool);
 		m_tempPath.release(k-m, m_tempPath.vertexCount(), m_pool);
 		return false;

@@ -84,6 +84,9 @@ public:
 	 * \param rrDepth
 	 *     Depth to begin using russian roulette
 	 *
+	 * \param rrForcedDepth
+	 *     Depth to begin forcing russian roulette
+	 *
 	 * \param excludeDirectIllum
 	 *     If set to true, the direct illumination component will
 	 *     be ignored. Note that this parameter is unrelated
@@ -101,7 +104,7 @@ public:
 	 */
 	PathSampler(ETechnique technique, const Scene *scene, Sampler *emitterSampler,
 		Sampler *sensorSampler, Sampler *directSampler, int maxDepth, int rrDepth,
-		bool excludeDirectIllum, bool sampleDirect, bool lightImage = true);
+		int rrForcedDepth, bool excludeDirectIllum, bool sampleDirect, bool lightImage = true);
 
 	/**
 	 * \brief Generate a sample using the configured sampling strategy
@@ -201,6 +204,7 @@ protected:
 	ref<Sampler> m_directSampler;
 	int m_maxDepth;
 	int m_rrDepth;
+	int m_rrForcedDepth;
 	bool m_excludeDirectIllum;
 	bool m_sampleDirect;
 	bool m_lightImage;

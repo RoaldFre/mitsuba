@@ -21,6 +21,10 @@
 			Specifies the minimum path depth, after which the implementation will start to use the
 			"russian roulette" path termination criterion (set to <tt>-1</tt> to disable).
 		</param>
+		<param name="rrForcedDepth" readableName="Russian Roulette forcing depth" type="integer" default="100" importance="1">
+			Specifies the minimum path depth, after which the implementation will force the
+			"russian roulette" path termination probabilities to be less than unity (set to <tt>-1</tt> to disable).
+		</param>
 		<param name="strictNormals" readableName="Strict surface normals" type="boolean" default="false" importance="1">
 			<p>
 				Be strict about potential inconsistencies involving shading normals?
@@ -278,6 +282,10 @@
 			Specifies the minimum path depth, after which the implementation will start to use the
 			"russian roulette" path termination criterion (set to <tt>-1</tt> to disable).
 		</param>
+		<param name="rrForcedDepth" readableName="Russian Roulette forcing depth" type="integer" default="100" importance="1">
+			Specifies the minimum path depth, after which the implementation will force the
+			"russian roulette" path termination probabilities to be less than unity (set to <tt>-1</tt> to disable).
+		</param>
 		<param name="maxDepth" readableName="Maximum depth" type="integer" default="-1">
 			Specifies the longest path depth in the generated output image (where <tt>-1</tt>
 			corresponds to ∞). A value of 1 will only render directly visible light sources.
@@ -358,6 +366,10 @@
 			Specifies the minimum path depth, after which the implementation will start to use the
 			"russian roulette" path termination criterion when tracing photons (set to <tt>-1</tt> to disable).
 		</param>
+		<param name="rrForcedDepth" readableName="Russian Roulette forcing depth" type="integer" default="100" importance="1">
+			Specifies the minimum path depth, after which the implementation will force the
+			"russian roulette" path termination probabilities to be less than unity (set to <tt>-1</tt> to disable).
+		</param>
 		<param name="hideEmitters" readableName="Hide directly visible emitters" type="boolean" default="false" importance="1">
 			Hide light sources (e.g. area or environment light sources) that are directly visible to the camera?
 			Reflections of light sources remain unaffected.
@@ -396,6 +408,10 @@
 			Specifies the minimum path depth, after which the implementation will start to use the
 			"russian roulette" path termination criterion when tracing photons (set to <tt>-1</tt> to disable).
 		</param>
+		<param name="rrForcedDepth" readableName="Russian Roulette forcing depth" type="integer" default="100" importance="1">
+			Specifies the minimum path depth, after which the implementation will force the
+			"russian roulette" path termination probabilities to be less than unity (set to <tt>-1</tt> to disable).
+		</param>
 		<param name="alpha" readableName="Size reduction parameter" type="float" default="0.7" importance="1">Alpha parameter from the paper (influences the speed, at which the photon radius is reduced)</param>
 	</plugin>
 
@@ -422,6 +438,10 @@
 		<param name="rrDepth" readableName="Russian Roulette starting depth" type="integer" default="5" importance="1">
 			Specifies the minimum path depth, after which the implementation will start to use the
 			"russian roulette" path termination criterion (set to <tt>-1</tt> to disable).
+		</param>
+		<param name="rrForcedDepth" readableName="Russian Roulette forcing depth" type="integer" default="100" importance="1">
+			Specifies the minimum path depth, after which the implementation will force the
+			"russian roulette" path termination probabilities to be less than unity (set to <tt>-1</tt> to disable).
 		</param>
 		<param name="alpha" readableName="Size reduction parameter" type="float" default="0.7" importance="1">Alpha parameter from the paper (influences the speed, at which the photon radius is reduced)</param>
 	</plugin>
@@ -494,6 +514,10 @@
 		<param name="rrDepth" readableName="Russian Roulette starting depth" type="integer" default="5" importance="1">
 			Specifies the minimum path depth, after which the implementation will start to use the
 			"russian roulette" path termination criterion (set to <tt>-1</tt> to disable).
+		</param>
+		<param name="rrForcedDepth" readableName="Russian Roulette forcing depth" type="integer" default="100" importance="1">
+			Specifies the minimum path depth, after which the implementation will force the
+			"russian roulette" path termination probabilities to be less than unity (set to <tt>-1</tt> to disable).
 		</param>
 	</plugin>
 
@@ -592,6 +616,10 @@
 		<param name="rrDepth" readableName="Russian Roulette starting depth" type="integer" default="5" importance="1">
 			Specifies the minimum path depth, after which the implementation will start to use the
 			"russian roulette" path termination criterion (set to <tt>-1</tt> to disable).
+		</param>
+		<param name="rrForcedDepth" readableName="Russian Roulette forcing depth" type="integer" default="100" importance="1">
+			Specifies the minimum path depth, after which the implementation will force the
+			"russian roulette" path termination probabilities to be less than unity (set to <tt>-1</tt> to disable).
 		</param>
 		<param name="timeout" readableName="Timeout" type="integer" default="0">
 			Rendering budget in seconds
@@ -741,6 +769,10 @@
 			When creating seed paths, this parameter specifies the minimum path depth, after which the
 			implementation will start to use the
 			"russian roulette" path termination criterion (set to <tt>-1</tt> to disable).
+		</param>
+		<param name="rrForcedDepth" readableName="Russian Roulette forcing depth" type="integer" default="100" importance="1">
+			Specifies the minimum path depth, after which the implementation will force the
+			"russian roulette" path termination probabilities to be less than unity (set to <tt>-1</tt> to disable).
 		</param>
 	</plugin>
 

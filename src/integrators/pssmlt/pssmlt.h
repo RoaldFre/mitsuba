@@ -40,6 +40,7 @@ struct PSSMLTConfiguration {
 	int maxDepth;
 	bool directSampling;
 	int rrDepth;
+	int rrForcedDepth;
 	bool separateDirect;
 	Float luminance;
 	Float pLarge;
@@ -74,6 +75,7 @@ struct PSSMLTConfiguration {
 		SLog(EDebug, "   Direct sampling strategies  : %s",
 			directSampling ? "yes" : "no");
 		SLog(EDebug, "   Russian roulette depth      : %i", rrDepth);
+		SLog(EDebug, "   Russian roulette force depth: %i", rrForcedDepth);
 		SLog(EDebug, "   Large step probability      : %f", pLarge);
 		SLog(EDebug, "   Kelemen et al. weights      : %s",
 			kelemenStyleWeights ? "yes" : "no");
@@ -92,6 +94,7 @@ struct PSSMLTConfiguration {
 		maxDepth = stream->readInt();
 		directSampling = stream->readBool();
 		rrDepth = stream->readInt();
+		rrForcedDepth = stream->readInt();
 		separateDirect = stream->readBool();
 		luminance = stream->readFloat();
 		pLarge = stream->readFloat();
@@ -119,6 +122,7 @@ struct PSSMLTConfiguration {
 		stream->writeInt(maxDepth);
 		stream->writeBool(directSampling);
 		stream->writeInt(rrDepth);
+		stream->writeInt(rrForcedDepth);
 		stream->writeBool(separateDirect);
 		stream->writeFloat(luminance);
 		stream->writeFloat(pLarge);

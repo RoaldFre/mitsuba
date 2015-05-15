@@ -457,6 +457,7 @@ protected:
 protected:
     int m_maxDepth;
     int m_rrDepth;
+	int m_rrForcedDepth;
 	bool m_strictNormals;
 	bool m_hideEmitters;
 };

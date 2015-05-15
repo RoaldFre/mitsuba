@@ -191,6 +191,9 @@ MonteCarloIntegrator::MonteCarloIntegrator(const Properties &props) : SamplingIn
 	/* Depth to begin using russian roulette */
 	m_rrDepth = props.getInteger("rrDepth", 5);
 
+	/* Depth to begin forcing russian roulette */
+	m_rrForcedDepth = props.getInteger("rrForceDepth", 100);
+
 	/* Longest visualized path depth (\c -1 = infinite).
 	   A value of \c 1 will visualize only directly visible light sources.
 	   \c 2 will lead to single-bounce (direct-only) illumination, and so on. */
@@ -227,6 +230,7 @@ MonteCarloIntegrator::MonteCarloIntegrator(const Properties &props) : SamplingIn
 MonteCarloIntegrator::MonteCarloIntegrator(Stream *stream, InstanceManager *manager)
 	: SamplingIntegrator(stream, manager) {
 	m_rrDepth = stream->readInt();
+	m_rrForcedDepth = stream->readInt();
 	m_maxDepth = stream->readInt();
 	m_strictNormals = stream->readBool();
 	m_hideEmitters = stream->readBool();
@@ -235,6 +239,7 @@ MonteCarloIntegrator::MonteCarloIntegrator(Stream *stream, InstanceManager *mana
 void MonteCarloIntegrator::serialize(Stream *stream, InstanceManager *manager) const {
 	SamplingIntegrator::serialize(stream, manager);
 	stream->writeInt(m_rrDepth);
+	stream->writeInt(m_rrForcedDepth);
 	stream->writeInt(m_maxDepth);
 	stream->writeBool(m_strictNormals);
 	stream->writeBool(m_hideEmitters);

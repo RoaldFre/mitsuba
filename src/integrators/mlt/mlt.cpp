@@ -295,7 +295,7 @@ public:
 
 		ref<ReplayableSampler> rplSampler = new ReplayableSampler();
 		ref<PathSampler> pathSampler = new PathSampler(PathSampler::EBidirectional, scene,
-			rplSampler, rplSampler, rplSampler, m_config.maxDepth, 10,
+			rplSampler, rplSampler, rplSampler, m_config.maxDepth, 10, 100,
 			m_config.separateDirect, true);
 
 		std::vector<PathSeed> pathSeeds;

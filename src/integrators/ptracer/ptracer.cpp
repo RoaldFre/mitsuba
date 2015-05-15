@@ -33,6 +33,10 @@ MTS_NAMESPACE_BEGIN
  *	      which the implementation will start to use the ``russian roulette''
  *	      path termination criterion. \default{\code{5}}
  *	   }
+ *	   \parameter{rrForcedDepth}{\Integer}{Specifies the minimum path depth, after
+ *	      which the implementation will force the ``russian roulette'' path
+ *	      termination probabilities to be less than unity. \default{\code{100}}
+ *	   }
  *	   \parameter{granularity}{\Integer}{
  *        Specifies the work unit granularity used to parallize the particle
  *        tracing task. This should be set high enough so that accumulating
@@ -86,6 +90,9 @@ public:
 		/* Depth to start using russian roulette */
 		m_rrDepth = props.getInteger("rrDepth", 5);
 
+		/* Depth to start forcing russian roulette */
+		m_rrForcedDepth = props.getInteger("rrForcedDepth", 100);
+
 		/* Longest visualized path length (<tt>-1</tt>=infinite).
 		   A value of <tt>1</tt> will produce a black image, since this integrator
 		   does not visualize directly visible light sources,
@@ -112,6 +119,7 @@ public:
 		: Integrator(stream, manager) {
 		m_maxDepth = stream->readInt();
 		m_rrDepth = stream->readInt();
+		m_rrForcedDepth = stream->readInt();
 		m_granularity = stream->readSize();
 		m_bruteForce = stream->readBool();
 	}
@@ -120,6 +128,7 @@ public:
 		Integrator::serialize(stream, manager);
 		stream->writeInt(m_maxDepth);
 		stream->writeInt(m_rrDepth);
+		stream->writeInt(m_rrForcedDepth);
 		stream->writeSize(m_granularity);
 		stream->writeBool(m_bruteForce);
 	}
@@ -165,7 +174,7 @@ public:
 
 		ref<ParallelProcess> process = new CaptureParticleProcess(
 			job, queue, m_sampleCount, m_granularity,
-			maxPtracerDepth, m_maxDepth, m_rrDepth, m_bruteForce);
+			maxPtracerDepth, m_maxDepth, m_rrDepth, m_rrForcedDepth, m_bruteForce);
 
 		process->bindResource("scene", sceneResID);
 		process->bindResource("sensor", sensorResID);
@@ -183,6 +192,7 @@ public:
 		oss << "AdjointParticleTracer[" << endl
 			<< "  maxDepth = " << m_maxDepth << "," << endl
 			<< "  rrDepth = " << m_rrDepth << "," << endl
+			<< "  rrForcedDepth = " << m_rrForcedDepth << "," << endl
 			<< "  granularity = " << m_granularity << "," << endl
 			<< "  bruteForce = " << m_bruteForce << endl
 			<< "]";
@@ -193,7 +203,7 @@ public:
 	MTS_DECLARE_CLASS()
 protected:
 	ref<ParallelProcess> m_process;
-	int m_maxDepth, m_rrDepth;
+	int m_maxDepth, m_rrDepth, m_rrForcedDepth;
 	size_t m_sampleCount, m_granularity;
 	bool m_bruteForce;
 };
