@@ -187,12 +187,8 @@ void SamplingIntegrator::renderBlock(const Scene *scene,
 	}
 }
 
-MonteCarloIntegrator::MonteCarloIntegrator(const Properties &props) : SamplingIntegrator(props) {
-	/* Depth to begin using russian roulette */
-	m_rrDepth = props.getInteger("rrDepth", 5);
-
-	/* Depth to begin forcing russian roulette */
-	m_rrForcedDepth = props.getInteger("rrForceDepth", 100);
+MonteCarloIntegrator::MonteCarloIntegrator(const Properties &props)
+	: SamplingIntegrator(props), m_rr(props) {
 
 	/* Longest visualized path depth (\c -1 = infinite).
 	   A value of \c 1 will visualize only directly visible light sources.
@@ -220,17 +216,15 @@ MonteCarloIntegrator::MonteCarloIntegrator(const Properties &props) : SamplingIn
 	 */
 	m_hideEmitters = props.getBoolean("hideEmitters", false);
 
-	if (m_rrDepth <= 0)
-		Log(EError, "'rrDepth' must be set to a value greater than zero!");
-
 	if (m_maxDepth <= 0 && m_maxDepth != -1)
 		Log(EError, "'maxDepth' must be set to -1 (infinite) or a value greater than zero!");
+
+	if (m_maxDepth <= 0 && !m_rr.enabled())
+		Log(EError, "Disabling russian roulette and having unlimited path length are mutually exclusive!");
 }
 
 MonteCarloIntegrator::MonteCarloIntegrator(Stream *stream, InstanceManager *manager)
-	: SamplingIntegrator(stream, manager) {
-	m_rrDepth = stream->readInt();
-	m_rrForcedDepth = stream->readInt();
+	: SamplingIntegrator(stream, manager), m_rr(stream) {
 	m_maxDepth = stream->readInt();
 	m_strictNormals = stream->readBool();
 	m_hideEmitters = stream->readBool();
@@ -238,8 +232,7 @@ MonteCarloIntegrator::MonteCarloIntegrator(Stream *stream, InstanceManager *mana
 
 void MonteCarloIntegrator::serialize(Stream *stream, InstanceManager *manager) const {
 	SamplingIntegrator::serialize(stream, manager);
-	stream->writeInt(m_rrDepth);
-	stream->writeInt(m_rrForcedDepth);
+	m_rr.serialize(stream);
 	stream->writeInt(m_maxDepth);
 	stream->writeBool(m_strictNormals);
 	stream->writeBool(m_hideEmitters);

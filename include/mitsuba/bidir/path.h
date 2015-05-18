@@ -90,13 +90,8 @@ public:
 	 *     Pointer to a sample generator
 	 * \param nSteps
 	 *     Desired number of random walk steps (<tt>-1</tt>=infinite)
-	 * \param rrStart
-	 *     Depth to start using russian roulette
-	 *     (<tt>-1</tt>=never, <tt>0</tt>=starting at the first
-	 *     bounce, and so on)
-	 * \param rrForcedDepth
-	 *     Depth to begin forcing non-zero termination probability for 
-	 *     russian roulette
+	 * \param rr
+	 *     The Russian Roulette path termination criterion to use.
 	 * \param mode
 	 *     Denotes whether radiance or importance are being transported
 	 * \param pool
@@ -104,9 +99,8 @@ public:
 	 *     edges and vertices.
 	 * \return The number of successful steps performed by the random walk.
 	 */
-	int randomWalk(const Scene *scene, Sampler *sampler,
-		int nSteps, int rrStart, int rrForcedDepth, ETransportMode mode,
-		MemoryPool &pool);
+	int randomWalk(const Scene *scene, Sampler *sampler, int nSteps,
+		const RussianRoulette *rr, ETransportMode mode, MemoryPool &pool);
 
 	/**
 	 * \brief Perform a random walk starting at a specified
@@ -121,21 +115,16 @@ public:
 	 * \param pixelPosition
 	 *     Pixel position associated with the newly created
 	 *     sensor subpath
-	 * \param rrStart
-	 *     Depth to start using russian roulette
-	 *     (<tt>-1</tt>=never, <tt>0</tt>=starting at the first
-	 *     bounce, and so on)
-	 * \param rrForcedDepth
-	 *     Depth to begin forcing non-zero termination probability for 
-	 *     russian roulette
+	 * \param rr
+	 *     The Russian Roulette path termination criterion to use.
 	 * \param pool
 	 *     Reference to a memory pool that will be used to allocate
 	 *     edges and vertices.
 	 * \return The number of successful steps performed by the random walk.
 	 */
 	int randomWalkFromPixel(const Scene *scene, Sampler *sampler,
-		int nSteps, const Point2i &pixelPosition, int rrStart,
-		int rrForcedDepth, MemoryPool &pool);
+		int nSteps, const Point2i &pixelPosition, const RussianRoulette *rr,
+		MemoryPool &pool);
 
 	/**
 	 * \brief Perform two random walks on an emitter and sensor subpath
@@ -167,13 +156,8 @@ public:
 	 * \param pixelPosition
 	 *     Pixel position associated with the newly created
 	 *     sensor subpath
-	 * \param rrStart
-	 *     Depth to start using russian roulette
-	 *     (<tt>-1</tt>=never, <tt>0</tt>=starting at the first
-	 *     bounce, and so on)
-	 * \param rrForcedDepth
-	 *     Depth to begin forcing non-zero termination probability for 
-	 *     russian roulette
+	 * \param rr
+	 *     The Russian Roulette path termination criterion to use.
 	 * \param pool
 	 *     Reference to a memory pool that will be used to allocate
 	 *     edges and vertices.
@@ -183,7 +167,7 @@ public:
 	static std::pair<int, int> alternatingRandomWalkFromPixel(const Scene *scene,
 		Sampler *sampler, Path &emitterPath, int nEmitterSteps,
 		Path &sensorPath, int nSensorSteps, const Point2i &pixelPosition,
-		int rrStart, int rrForcedDepth, MemoryPool &pool);
+		const RussianRoulette *rr, MemoryPool &pool);
 
 	/**
 	 * \brief Verify the cached values stored in this path

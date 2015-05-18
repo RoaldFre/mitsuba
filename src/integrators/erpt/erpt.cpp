@@ -226,8 +226,10 @@ public:
 			createObject(MTS_CLASS(Sampler), Properties("independent")));
 		indepSampler->configure();
 
+		Properties props;
+		RussianRoulette rr(props); // initialize default rr
 		ref<PathSampler> pathSampler = new PathSampler(PathSampler::EBidirectional, scene,
-			indepSampler, indepSampler, indepSampler, m_config.maxDepth, 10,
+			indepSampler, indepSampler, indepSampler, m_config.maxDepth, rr,
 			m_config.separateDirect, true, true);
 
 		m_config.luminance = pathSampler->computeAverageLuminance(

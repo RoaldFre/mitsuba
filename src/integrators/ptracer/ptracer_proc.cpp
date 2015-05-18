@@ -61,8 +61,7 @@ void CaptureParticleWorker::prepare() {
 }
 
 ref<WorkProcessor> CaptureParticleWorker::clone() const {
-	return new CaptureParticleWorker(m_maxDepth,
-		m_maxPathDepth, m_rrDepth, m_rrForcedDepth, m_bruteForce);
+	return new CaptureParticleWorker(m_maxDepth, m_maxPathDepth, m_rr, m_bruteForce);
 }
 
 ref<WorkResult> CaptureParticleWorker::createWorkResult() const {
@@ -229,8 +228,7 @@ void CaptureParticleProcess::bindResource(const std::string &name, int id) {
 }
 
 ref<WorkProcessor> CaptureParticleProcess::createWorkProcessor() const {
-	return new CaptureParticleWorker(m_maxDepth, m_maxPathDepth,
-			m_rrDepth, m_rrForcedDepth, m_bruteForce);
+	return new CaptureParticleWorker(m_maxDepth, m_maxPathDepth, m_rr, m_bruteForce);
 }
 
 MTS_IMPLEMENT_CLASS(CaptureParticleProcess, false, ParticleProcess)

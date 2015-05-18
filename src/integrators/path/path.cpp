@@ -40,6 +40,13 @@ static StatsCounter avgPathLength("Path tracer", "Average path length", EAverage
  *	      which the implementation will force the ``russian roulette'' path
  *	      termination probabilities to be less than unity. \default{\code{100}}
  *	   }
+ *	   \parameter{rrTargetThroughput}{\Float}{The ``russian roulette'' path
+ *	      termination criterion will try to keep the path weights at or
+ *	      above this value. When the interesting parts of the scene end up
+ *	      being much less bright than the light sources, setting this to a
+ *	      lower value can be beneficial.
+ *	      \default{\code{1.0}}
+ *	   }
  *     \parameter{strictNormals}{\Boolean}{Be strict about potential
  *        inconsistencies involving shading normals? See the description below
  *        for details.\default{no, i.e. \code{false}}
@@ -277,18 +284,11 @@ public:
 				break;
 			rRec.type = RadianceQueryRecord::ERadianceNoEmission;
 
-			if (rRec.depth++ >= m_rrDepth) {
-				/* Russian roulette: try to keep path weights equal to one,
-				   while accounting for the solid angle compression at refractive
-				   index boundaries. For depths greater than m_rrForcedDepth:
-				   stop with at least some probability to avoid getting stuck
-				   (e.g. due to total internal reflection) */
-				Float qMax = m_rrForcedDepth > 0 && rRec.depth >= m_rrForcedDepth ? 0.95f : 1.f;
-				Float q = std::min(throughput.max() * eta * eta, qMax);
-				if (rRec.nextSample1D() >= q)
-					break;
-				throughput /= q;
-			}
+			rRec.depth++;
+			Float q = m_rr.roulette(rRec.depth, throughput, eta, rRec.sampler);
+			if (q == 0.0f)
+				break;
+			throughput /= q;
 		}
 
 		/* Store statistics */
@@ -312,8 +312,7 @@ public:
 		std::ostringstream oss;
 		oss << "MIPathTracer[" << endl
 			<< "  maxDepth = " << m_maxDepth << "," << endl
-			<< "  rrDepth = " << m_rrDepth << "," << endl
-			<< "  rrForcedDepth = " << m_rrForcedDepth << "," << endl
+			<< "  rr = " << m_rr.toString() << "," << endl
 			<< "  strictNormals = " << m_strictNormals << endl
 			<< "]";
 		return oss.str();

@@ -50,6 +50,13 @@ MTS_NAMESPACE_BEGIN
  *	      which the implementation will force the ``russian roulette'' path
  *	      termination probabilities to be less than unity. \default{\code{100}}
  *	   }
+ *	   \parameter{rrTargetThroughput}{\Float}{The ``russian roulette'' path
+ *	      termination criterion will try to keep the path weights at or
+ *	      above this value. When the interesting parts of the scene end up
+ *	      being much less bright than the light sources, setting this to a
+ *	      lower value can be beneficial.
+ *	      \default{\code{1.0}}
+ *	   }
  * }
  *
  ** \renderings{
@@ -138,9 +145,8 @@ class BDPTIntegrator : public Integrator {
 public:
 	BDPTIntegrator(const Properties &props) : Integrator(props) {
 		/* Load the parameters / defaults */
+		m_config.rr = RussianRoulette(props);
 		m_config.maxDepth = props.getInteger("maxDepth", -1);
-		m_config.rrDepth = props.getInteger("rrDepth", 5);
-		m_config.rrForcedDepth = props.getInteger("rrForcedDepth", 100);
 		m_config.lightImage = props.getBoolean("lightImage", true);
 		m_config.sampleDirect = props.getBoolean("sampleDirect", true);
 		m_config.showWeighted = props.getBoolean("showWeighted", false);
@@ -156,11 +162,11 @@ public:
 		}
 		#endif
 
-		if (m_config.rrDepth <= 0)
-			Log(EError, "'rrDepth' must be set to a value greater than zero!");
-
 		if (m_config.maxDepth <= 0 && m_config.maxDepth != -1)
 			Log(EError, "'maxDepth' must be set to -1 (infinite) or a value greater than zero!");
+
+		if (m_config.maxDepth <= 0 && !m_config.rr.enabled())
+			Log(EError, "Disabling russian roulette and having unlimited path length are mutually exclusive!");
 	}
 
 	/// Unserialize from a binary data stream

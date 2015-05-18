@@ -34,8 +34,8 @@ void PathVertex::makeEndpoint(const Scene *scene, Float time, ETransportMode mod
 
 bool PathVertex::sampleNext(const Scene *scene, Sampler *sampler,
 		const PathVertex *pred, const PathEdge *predEdge,
-		PathEdge *succEdge, PathVertex *succ,
-		ETransportMode mode, Float rrMaxProb, Spectrum *throughput) {
+		PathEdge *succEdge, PathVertex *succ, ETransportMode mode,
+		const RussianRoulette *rr, Spectrum *throughput, int depth) {
 	Ray ray;
 
 	memset(succEdge, 0, sizeof(PathEdge));
@@ -267,10 +267,9 @@ bool PathVertex::sampleNext(const Scene *scene, Sampler *sampler,
 		/* For BDPT: keep track of the path throughput to run russian roulette */
 		(*throughput) *= weight[mode];
 
-		if (rrMaxProb > 0) {
-			Float q = std::min(throughput->max(), std::min(rrMaxProb, (Float) 1.0f));
-
-			if (sampler->next1D() > q) {
+		if (rr) {
+			Float q = rr->roulette(depth, *throughput, 1.0f, sampler); // eta is already incorporated in the throughput
+			if (q == 0.0f) {
 				measure = EInvalidMeasure;
 				return false;
 			} else {

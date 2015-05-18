@@ -20,6 +20,7 @@
 #define __BDPT_H
 
 #include <mitsuba/mitsuba.h>
+#include <mitsuba/render/integrator.h>
 
 /**
  * When the following is set to "1", the Bidirectional Path Tracer
@@ -46,11 +47,11 @@ struct BDPTConfiguration {
 	bool showWeighted;
 	size_t sampleCount;
 	Vector2i cropSize;
-	int rrDepth, rrForcedDepth;
+	RussianRoulette rr;
 
 	inline BDPTConfiguration() { }
 
-	inline BDPTConfiguration(Stream *stream) {
+	inline BDPTConfiguration(Stream *stream) : rr(stream) {
 		maxDepth = stream->readInt();
 		blockSize = stream->readInt();
 		lightImage = stream->readBool();
@@ -58,11 +59,10 @@ struct BDPTConfiguration {
 		showWeighted = stream->readBool();
 		sampleCount = stream->readSize();
 		cropSize = Vector2i(stream);
-		rrDepth = stream->readInt();
-		rrForcedDepth = stream->readInt();
 	}
 
 	inline void serialize(Stream *stream) const {
+		rr.serialize(stream);
 		stream->writeInt(maxDepth);
 		stream->writeInt(blockSize);
 		stream->writeBool(lightImage);
@@ -70,8 +70,6 @@ struct BDPTConfiguration {
 		stream->writeBool(showWeighted);
 		stream->writeSize(sampleCount);
 		cropSize.serialize(stream);
-		stream->writeInt(rrDepth);
-		stream->writeInt(rrForcedDepth);
 	}
 
 	void dump() const {
@@ -83,8 +81,7 @@ struct BDPTConfiguration {
 			sampleDirect ? "yes" : "no");
 		SLog(EDebug, "   Generate light image        : %s",
 			lightImage ? "yes" : "no");
-		SLog(EDebug, "   Russian roulette depth      : %i", rrDepth);
-		SLog(EDebug, "   Russian roulette force depth: %i", rrForcedDepth);
+		SLog(EDebug, "   Russian roulette            : %s", rr.toString().c_str());
 		SLog(EDebug, "   Block size                  : %i", blockSize);
 		SLog(EDebug, "   Number of samples           : " SIZE_T_FMT, sampleCount);
 		#if BDPT_DEBUG == 1

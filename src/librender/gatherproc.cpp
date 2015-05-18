@@ -99,8 +99,8 @@ private:
 class GatherPhotonWorker : public ParticleTracer {
 public:
 	GatherPhotonWorker(GatherPhotonProcess::EGatherType type, size_t granularity,
-		int maxDepth, int rrDepth, int rrForcedDepth) :
-		ParticleTracer(maxDepth, rrDepth, rrForcedDepth, false),
+		int maxDepth, RussianRoulette rr) :
+		ParticleTracer(maxDepth, rr, false),
 		m_type(type), m_granularity(granularity) { }
 
 	GatherPhotonWorker(Stream *stream, InstanceManager *manager)
@@ -111,7 +111,7 @@ public:
 
 	ref<WorkProcessor> clone() const {
 		return new GatherPhotonWorker(m_type, m_granularity, m_maxDepth,
-			m_rrDepth, m_rrForcedDepth);
+			m_rr);
 	}
 
 	void serialize(Stream *stream, InstanceManager *manager) const {
@@ -169,11 +169,11 @@ protected:
 };
 
 GatherPhotonProcess::GatherPhotonProcess(EGatherType type, size_t photonCount,
-	size_t granularity, int maxDepth, int rrDepth, int rrForcedDepth,
+	size_t granularity, int maxDepth, RussianRoulette rr,
 	bool isLocal, bool autoCancel, const void *progressReporterPayload)
 	: ParticleProcess(ParticleProcess::EGather, photonCount, granularity, "Gathering photons",
 	  progressReporterPayload), m_type(type), m_photonCount(photonCount), m_maxDepth(maxDepth),
-	  m_rrDepth(rrDepth), m_rrForcedDepth(rrForcedDepth), m_isLocal(isLocal),
+	  m_rr(rr), m_isLocal(isLocal),
 	  m_autoCancel(autoCancel), m_excess(0), m_numShot(0) {
 	m_photonMap = new PhotonMap(photonCount);
 }
@@ -183,7 +183,7 @@ bool GatherPhotonProcess::isLocal() const {
 }
 
 ref<WorkProcessor> GatherPhotonProcess::createWorkProcessor() const {
-	return new GatherPhotonWorker(m_type, m_granularity, m_maxDepth, m_rrDepth, m_rrForcedDepth);
+	return new GatherPhotonWorker(m_type, m_granularity, m_maxDepth, m_rr);
 }
 
 void GatherPhotonProcess::processResult(const WorkResult *wr, bool cancelled) {

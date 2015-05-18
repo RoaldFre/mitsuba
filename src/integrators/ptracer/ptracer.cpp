@@ -37,6 +37,13 @@ MTS_NAMESPACE_BEGIN
  *	      which the implementation will force the ``russian roulette'' path
  *	      termination probabilities to be less than unity. \default{\code{100}}
  *	   }
+ *	   \parameter{rrTargetThroughput}{\Float}{The ``russian roulette'' path
+ *	      termination criterion will try to keep the path weights at or
+ *	      above this value. When the interesting parts of the scene end up
+ *	      being much less bright than the light sources, setting this to a
+ *	      lower value can be beneficial.
+ *	      \default{\code{1.0}}
+ *	   }
  *	   \parameter{granularity}{\Integer}{
  *        Specifies the work unit granularity used to parallize the particle
  *        tracing task. This should be set high enough so that accumulating
@@ -86,13 +93,7 @@ MTS_NAMESPACE_BEGIN
  */
 class AdjointParticleTracer : public Integrator {
 public:
-	AdjointParticleTracer(const Properties &props) : Integrator(props) {
-		/* Depth to start using russian roulette */
-		m_rrDepth = props.getInteger("rrDepth", 5);
-
-		/* Depth to start forcing russian roulette */
-		m_rrForcedDepth = props.getInteger("rrForcedDepth", 100);
-
+	AdjointParticleTracer(const Properties &props) : Integrator(props), m_rr(props) {
 		/* Longest visualized path length (<tt>-1</tt>=infinite).
 		   A value of <tt>1</tt> will produce a black image, since this integrator
 		   does not visualize directly visible light sources,
@@ -108,27 +109,24 @@ public:
 		/* Rely on hitting the sensor via ray tracing? */
 		m_bruteForce = props.getBoolean("bruteForce", false);
 
-		if (m_rrDepth <= 0)
-			Log(EError, "'rrDepth' must be set to a value than zero!");
-
 		if (m_maxDepth <= 0 && m_maxDepth != -1)
 			Log(EError, "'maxDepth' must be set to -1 (infinite) or a value greater than zero!");
+
+		if (m_maxDepth <= 0 && !m_rr.enabled())
+			Log(EError, "Disabling russian roulette and having unlimited path length are mutually exclusive!");
 	}
 
 	AdjointParticleTracer(Stream *stream, InstanceManager *manager)
-		: Integrator(stream, manager) {
+		: Integrator(stream, manager), m_rr(stream) {
 		m_maxDepth = stream->readInt();
-		m_rrDepth = stream->readInt();
-		m_rrForcedDepth = stream->readInt();
 		m_granularity = stream->readSize();
 		m_bruteForce = stream->readBool();
 	}
 
 	void serialize(Stream *stream, InstanceManager *manager) const {
 		Integrator::serialize(stream, manager);
+		m_rr.serialize(stream);
 		stream->writeInt(m_maxDepth);
-		stream->writeInt(m_rrDepth);
-		stream->writeInt(m_rrForcedDepth);
 		stream->writeSize(m_granularity);
 		stream->writeBool(m_bruteForce);
 	}
@@ -173,8 +171,8 @@ public:
 		}
 
 		ref<ParallelProcess> process = new CaptureParticleProcess(
-			job, queue, m_sampleCount, m_granularity,
-			maxPtracerDepth, m_maxDepth, m_rrDepth, m_rrForcedDepth, m_bruteForce);
+			job, queue, m_sampleCount, m_granularity, maxPtracerDepth,
+			m_maxDepth, m_rr, m_bruteForce);
 
 		process->bindResource("scene", sceneResID);
 		process->bindResource("sensor", sensorResID);
@@ -191,8 +189,7 @@ public:
 		std::ostringstream oss;
 		oss << "AdjointParticleTracer[" << endl
 			<< "  maxDepth = " << m_maxDepth << "," << endl
-			<< "  rrDepth = " << m_rrDepth << "," << endl
-			<< "  rrForcedDepth = " << m_rrForcedDepth << "," << endl
+			<< "  rr = " << m_rr.toString() << "," << endl
 			<< "  granularity = " << m_granularity << "," << endl
 			<< "  bruteForce = " << m_bruteForce << endl
 			<< "]";
@@ -203,7 +200,8 @@ public:
 	MTS_DECLARE_CLASS()
 protected:
 	ref<ParallelProcess> m_process;
-	int m_maxDepth, m_rrDepth, m_rrForcedDepth;
+	int m_maxDepth;
+	RussianRoulette m_rr;
 	size_t m_sampleCount, m_granularity;
 	bool m_bruteForce;
 };

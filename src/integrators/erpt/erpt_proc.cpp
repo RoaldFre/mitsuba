@@ -103,8 +103,10 @@ public:
 		m_scene->wakeup(NULL, m_resources);
 		m_scene->initializeBidirectional();
 
+		Properties props;
+		RussianRoulette rr(props); // initialize default rr
 		m_pathSampler = new PathSampler(PathSampler::EBidirectional, m_scene,
-			m_sampler, m_sampler, m_sampler, m_config.maxDepth, 10,
+			m_sampler, m_sampler, m_sampler, m_config.maxDepth, rr,
 			m_config.separateDirect, true, true);
 
 		m_pool = &m_pathSampler->getMemoryPool();

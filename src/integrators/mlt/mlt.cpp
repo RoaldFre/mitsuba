@@ -293,9 +293,11 @@ public:
 				return false;
 		}
 
+		Properties props;
+		RussianRoulette rr(props); // initialize default rr
 		ref<ReplayableSampler> rplSampler = new ReplayableSampler();
 		ref<PathSampler> pathSampler = new PathSampler(PathSampler::EBidirectional, scene,
-			rplSampler, rplSampler, rplSampler, m_config.maxDepth, 10, 100,
+			rplSampler, rplSampler, rplSampler, m_config.maxDepth, rr,
 			m_config.separateDirect, true);
 
 		std::vector<PathSeed> pathSeeds;

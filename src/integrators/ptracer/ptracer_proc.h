@@ -75,8 +75,8 @@ protected:
 class CaptureParticleWorker : public ParticleTracer {
 public:
 	inline CaptureParticleWorker(int maxDepth, int maxPathDepth,
-		int rrDepth, int rrForcedDepth, bool bruteForce)
-		: ParticleTracer(maxDepth, rrDepth, rrForcedDepth, true),
+		RussianRoulette rr, bool bruteForce)
+		: ParticleTracer(maxDepth, rr, true),
 		m_maxPathDepth(maxPathDepth), m_bruteForce(bruteForce) { }
 
 	CaptureParticleWorker(Stream *stream, InstanceManager *manager);
@@ -141,13 +141,11 @@ class CaptureParticleProcess : public ParticleProcess {
 public:
 	CaptureParticleProcess(const RenderJob *job, RenderQueue *queue,
 			size_t sampleCount, size_t granularity, int maxDepth,
-			int maxPathDepth, int rrDepth, int rrForcedDepth,
-			bool bruteForce)
+			int maxPathDepth, RussianRoulette rr, bool bruteForce)
 		: ParticleProcess(ParticleProcess::ETrace, sampleCount,
 		  granularity, "Rendering", job), m_job(job), m_queue(queue),
 		  m_maxDepth(maxDepth), m_maxPathDepth(maxPathDepth),
-		  m_rrDepth(rrDepth), m_rrForcedDepth(rrForcedDepth),
-		  m_bruteForce(bruteForce) {
+		  m_rr(rr), m_bruteForce(bruteForce) {
 	}
 
 	void develop();
@@ -168,8 +166,7 @@ private:
 	ref<ImageBlock> m_accum;
 	int m_maxDepth;
 	int m_maxPathDepth;
-	int m_rrDepth;
-	int m_rrForcedDepth;
+	RussianRoulette m_rr;
 	bool m_bruteForce;
 };
 

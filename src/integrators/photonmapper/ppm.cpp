@@ -47,6 +47,13 @@ MTS_NAMESPACE_BEGIN
  *	      which the implementation will force the ``russian roulette'' path
  *	      termination probabilities to be less than unity. \default{\code{100}}
  *	   }
+ *	   \parameter{rrTargetThroughput}{\Float}{The ``russian roulette'' path
+ *	      termination criterion will try to keep the path weights at or
+ *	      above this value. When the interesting parts of the scene end up
+ *	      being much less bright than the light sources, setting this to a
+ *	      lower value can be beneficial.
+ *	      \default{\code{1.0}}
+ *	   }
  *     \parameter{maxPasses}{\Integer}{Maximum number of passes to render (where \code{-1}
  *        corresponds to rendering until stopped manually). \default{\code{-1}}}
  * }
@@ -97,7 +104,7 @@ public:
 		std::vector<GatherPoint> gatherPoints;
 	};
 
-	PPMIntegrator(const Properties &props) : Integrator(props) {
+	PPMIntegrator(const Properties &props) : Integrator(props), m_rr(props) {
 		/* Initial photon query radius (0 = infer based on scene size and sensor resolution) */
 		m_initialRadius = props.getFloat("initialRadius", 0);
 		/* Alpha parameter from the paper (influences the speed, at which the photon radius is reduced) */
@@ -111,10 +118,6 @@ public:
 		   specified, it must be greater or equal to <tt>2</tt>, which corresponds to single-bounce
 		   (direct-only) illumination */
 		m_maxDepth = props.getInteger("maxDepth", -1);
-		/* Depth to start using russian roulette */
-		m_rrDepth = props.getInteger("rrDepth", 5);
-		/* Depth to start forcing russian roulette */
-		m_rrForcedDepth = props.getInteger("rrForcedDepth", 100);
 		/* Indicates if the gathering steps should be canceled if not enough photons are generated. */
 		m_autoCancelGathering = props.getBoolean("autoCancelGathering", true);
         /* Maximum number of passes to render. -1 renders until the process is stopped. */
@@ -335,7 +338,7 @@ public:
 		ref<GatherPhotonProcess> proc = new GatherPhotonProcess(
 			GatherPhotonProcess::EAllSurfacePhotons, m_photonCount,
 			m_granularity, m_maxDepth == -1 ? -1 : (m_maxDepth-1),
-			m_rrDepth, m_rrForcedDepth, true, m_autoCancelGathering, job);
+			m_rr, true, m_autoCancelGathering, job);
 
 		proc->bindResource("scene", sceneResID);
 		proc->bindResource("sensor", sensorResID);
@@ -398,8 +401,7 @@ public:
 		std::ostringstream oss;
 		oss << "SPPMIntegrator[" << endl
 			<< "  maxDepth = " << m_maxDepth << "," << endl
-			<< "  rrDepth = " << m_rrDepth << "," << endl
-			<< "  rrForcedDepth = " << m_rrForcedDepth << "," << endl
+			<< "  rr = " << m_rr.toString() << "," << endl
 			<< "  initialRadius = " << m_initialRadius << "," << endl
 			<< "  alpha = " << m_alpha << "," << endl
 			<< "  photonCount = " << m_photonCount << "," << endl
@@ -414,7 +416,8 @@ private:
 	std::vector<PPMWorkUnit *> m_workUnits;
 	Float m_initialRadius, m_alpha;
 	int m_photonCount, m_granularity;
-	int m_maxDepth, m_rrDepth, m_rrForcedDepth;
+	int m_maxDepth;
+	RussianRoulette m_rr;
 	size_t m_totalEmissions, m_totalPhotons;
 	int m_blockSize;
 	bool m_running;

@@ -63,7 +63,7 @@ public:
 	 *    Custom pointer payload to be delivered with progress messages
 	 */
 	GatherPhotonProcess(EGatherType type, size_t photonCount,
-		size_t granularity, int maxDepth, int rrDepth, int rrForcedDepth,
+		size_t granularity, int maxDepth, RussianRoulette rr,
 		bool isLocal, bool autoCancel, const void *progressReporterPayload);
 
 	/**
@@ -118,8 +118,7 @@ protected:
 	ref<PhotonMap> m_photonMap;
 	size_t m_photonCount;
 	int m_maxDepth;
-	int m_rrDepth;
-	int m_rrForcedDepth;
+	RussianRoulette m_rr;
 	bool m_isLocal;
 	bool m_autoCancel;
 	size_t m_excess, m_numShot;

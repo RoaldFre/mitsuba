@@ -81,11 +81,8 @@ public:
 	 * \param maxDepth
 	 *     Maximum path depth to be visualized (-1==infinite)
 	 *
-	 * \param rrDepth
-	 *     Depth to begin using russian roulette
-	 *
-	 * \param rrForcedDepth
-	 *     Depth to begin forcing russian roulette
+	 * \param rr
+	 *     Russian Roulette criterion to use.
 	 *
 	 * \param excludeDirectIllum
 	 *     If set to true, the direct illumination component will
@@ -103,8 +100,8 @@ public:
 	 *    in the rendering process.
 	 */
 	PathSampler(ETechnique technique, const Scene *scene, Sampler *emitterSampler,
-		Sampler *sensorSampler, Sampler *directSampler, int maxDepth, int rrDepth,
-		int rrForcedDepth, bool excludeDirectIllum, bool sampleDirect, bool lightImage = true);
+		Sampler *sensorSampler, Sampler *directSampler, int maxDepth, RussianRoulette rr,
+		bool excludeDirectIllum, bool sampleDirect, bool lightImage = true);
 
 	/**
 	 * \brief Generate a sample using the configured sampling strategy
@@ -203,8 +200,7 @@ protected:
 	ref<Sampler> m_sensorSampler;
 	ref<Sampler> m_directSampler;
 	int m_maxDepth;
-	int m_rrDepth;
-	int m_rrForcedDepth;
+	RussianRoulette m_rr;
 	bool m_excludeDirectIllum;
 	bool m_sampleDirect;
 	bool m_lightImage;

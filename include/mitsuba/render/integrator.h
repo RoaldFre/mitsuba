@@ -23,6 +23,7 @@
 #include <mitsuba/core/netobject.h>
 #include <mitsuba/core/properties.h>
 #include <mitsuba/render/shape.h>
+#include <mitsuba/render/sampler.h>
 
 MTS_NAMESPACE_BEGIN
 
@@ -435,6 +436,143 @@ protected:
 	ref<ParallelProcess> m_process;
 };
 
+
+/*
+ * \brief Structure that takes care of Russian Roulette path termination.
+ *
+ * \ingroup librender
+ */
+struct MTS_EXPORT_RENDER RussianRoulette {
+public:
+	/** Enable russian roulette for path longer that this depth. */
+	int startDepth;
+
+	/**
+	 * Start forcing path termination with the less-than-unity
+	 * continuation probability given by \c FORCED_MAX_PROB for path longer
+	 * than this depth. If \c forcedDepth is negative, then Russian
+	 * roulette is disabled. */
+	int forcedDepth;
+
+	/**
+	 * Russian roulette will try to keep the path throughput at or above
+	 * this value. */
+	Float targetThroughput;
+
+	/**
+	 * When forcing termination for path longer than \c forcedDepth, use
+	 * this probability as an upper bound of the continuation probability. */
+	static const Float FORCED_MAX_PROB = 0.95f;
+
+	/// Default constructor, disables Russian roulette.
+	inline RussianRoulette() {
+		startDepth = -1;
+	}
+	/// Construct with the given properties.
+	inline RussianRoulette(const Properties &props) {
+		startDepth = props.getInteger("rrDepth", 5);
+		forcedDepth = props.getInteger("rrForcedDepth", 100);
+		targetThroughput = props.getFloat("rrTargetThroughput", 1.0f);
+
+		if (targetThroughput <= 0) {
+			SLog(EError, "Russian roulette target throughput should be larger than zero");
+		}
+	}
+	/// Unserialize from a stream.
+	inline RussianRoulette(Stream *stream) {
+		startDepth = stream->readInt();
+		forcedDepth = stream->readInt();
+		targetThroughput = stream->readFloat();
+	}
+	/// Serialize to a stream.
+	inline void serialize(Stream *stream) const {
+		stream->writeInt(startDepth);
+		stream->writeInt(forcedDepth);
+		stream->writeFloat(targetThroughput);
+	}
+
+	/// Is Russian roulette enabled?
+	inline bool enabled() const {
+		return startDepth >= 0;
+	}
+
+	/**
+	 * Performs a Russian Roulette path termination decision.
+	 *
+	 * Tries to keep path weights greater than or equal to targetThroughput,
+	 * while accounting for the solid angle compression at refractive index
+	 * boundaries.
+	 * For depths greater than forcedDepth (if positive): stop with at
+	 * least some probability to avoid getting stuck (e.g. due to total
+	 * internal reflection).
+	 *
+	 * \param depth
+	 *    The current path depth.
+	 * \param throughput
+	 *    The current path throughput (corrected for previous Russian
+	 *    roulette steps along the path if applicable).
+	 * \param eta
+	 *    The ratio of indices of refraction accumulated along the path.
+	 * \return
+	 *    Returns 0 if the tracing should be stopped and returns the
+	 *    continuation probability otherwise. This probability can be used
+	 *    to adjust the path troughput to remain unbiased.
+	 */
+	inline Float roulette(int depth, const Spectrum &throughput,
+			Float eta, Sampler *sampler) const {
+		if (!enabled() || depth < startDepth)
+			return 1.0f;
+
+		return roulette(throughput, eta, sampler,
+				forcedDepth > 0 && depth >= forcedDepth);
+	}
+
+	/**
+	 * \brief Performs a Russian Roulette path termination decision.
+	 *
+	 * This function is similar to the one with the additional path depth
+	 * parameter, with the difference that this function will always
+	 * evaluate the termination criterion, whereas the aforementioned
+	 * function only does this for paths that are longer than \c
+	 * startDepth and the \c forced parameter explicitly switches between
+	 * forced and unforced termination.
+	 *
+	 * \param throughput
+	 *    The current path throughput (corrected for previous Russian
+	 *    roulette steps along the path if applicable).
+	 * \param eta
+	 *    The ratio of indices of refraction accumulated along the path.
+	 * \param forced
+	 *    If true: force path termination with a nonzero probability,
+	 *    irrespective of the throughput.
+	 * \return
+	 *    Returns 0 if the tracing should be stopped and returns the
+	 *    continuation probability otherwise. This probability can be used
+	 *    to adjust the path troughput to remain unbiased.
+	 */
+	inline Float roulette(const Spectrum &throughput, Float eta,
+			Sampler *sampler, bool forced) const {
+		if (!enabled())
+			return 1.0f;
+
+		Float qMax = forced ? FORCED_MAX_PROB : 1.0f;
+		Float q = std::min(throughput.max() * eta * eta / targetThroughput, qMax);
+		if (q < 1.0f && sampler->next1D() >= q)
+				return 0.0f;
+		return q;
+	}
+
+	/// Return a string representation
+	inline std::string toString() const {
+		std::ostringstream oss;
+		oss << "RR[start " << startDepth <<
+		       ", forced " << forcedDepth <<
+		       ", target " << targetThroughput << "]";
+		return oss.str();
+	}
+};
+
+
 /*
  * \brief Base class of all recursive Monte Carlo integrators, which compute
  * unbiased solutions to the rendering equation (and optionally
@@ -456,8 +594,7 @@ protected:
 	virtual ~MonteCarloIntegrator() { }
 protected:
     int m_maxDepth;
-    int m_rrDepth;
-	int m_rrForcedDepth;
+	RussianRoulette m_rr;
 	bool m_strictNormals;
 	bool m_hideEmitters;
 };

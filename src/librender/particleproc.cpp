@@ -72,23 +72,19 @@ void ParticleProcess::increaseResultCount(size_t resultCount) {
 	m_progress->update(m_receivedResultCount);
 }
 
-ParticleTracer::ParticleTracer(int maxDepth, int rrDepth, int rrForcedDepth, bool emissionEvents)
-	: m_maxDepth(maxDepth), m_rrDepth(rrDepth), m_rrForcedDepth(rrForcedDepth),
-	m_emissionEvents(emissionEvents) { }
+ParticleTracer::ParticleTracer(int maxDepth, RussianRoulette rr,
+		bool emissionEvents)
+	: m_maxDepth(maxDepth), m_rr(rr), m_emissionEvents(emissionEvents) { }
 
 ParticleTracer::ParticleTracer(Stream *stream, InstanceManager *manager)
-	: WorkProcessor(stream, manager) {
-
+	: WorkProcessor(stream, manager), m_rr(stream) {
 	m_maxDepth = stream->readInt();
-	m_rrDepth = stream->readInt();
-	m_rrForcedDepth = stream->readInt();
 	m_emissionEvents = stream->readBool();
 }
 
 void ParticleTracer::serialize(Stream *stream, InstanceManager *manager) const {
+	m_rr.serialize(stream);
 	stream->writeInt(m_maxDepth);
-	stream->writeInt(m_rrDepth);
-	stream->writeInt(m_rrForcedDepth);
 	stream->writeBool(m_emissionEvents);
 }
 
@@ -132,6 +128,7 @@ void ParticleTracer::process(const WorkUnit *workUnit, WorkResult *workResult,
 
 		Spectrum power;
 		Ray ray;
+		Float eta = 1.0f;
 
 		if (m_emissionEvents) {
 			/* Sample the position and direction component separately to
@@ -219,6 +216,8 @@ void ParticleTracer::process(const WorkUnit *workUnit, WorkResult *workResult,
 				/* Keep track of the weight, medium and relative
 				   refractive index along the path */
 				throughput *= bsdfWeight;
+				eta *= bRec.eta;
+
 				if (its.isMediumTransition())
 					medium = its.getTargetMedium(woDotGeoN);
 
@@ -254,18 +253,10 @@ void ParticleTracer::process(const WorkUnit *workUnit, WorkResult *workResult,
 				ray.mint = Epsilon;
 			}
 
-			if (depth++ >= m_rrDepth) {
-				/* Russian roulette: try to keep path weights equal to one,
-				   while accounting for the solid angle compression at refractive
-				   index boundaries. For depths greater than m_rrForcedDepth:
-				   stop with at least some probability to avoid getting stuck
-				   (e.g. due to total internal reflection) */
-				Float qMax = m_rrForcedDepth > 0 && depth >= m_rrForcedDepth ? 0.95f : 1.f;
-				Float q = std::min(throughput.max(), qMax);
-				if (m_sampler->next1D() >= q)
-					break;
-				throughput /= q;
-			}
+			Float q = m_rr.roulette(depth, throughput, eta, m_sampler);
+			if (q == 0.0f)
+				break;
+			throughput /= q;
 		}
 	}
 }

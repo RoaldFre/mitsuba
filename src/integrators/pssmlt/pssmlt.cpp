@@ -61,6 +61,13 @@ MTS_NAMESPACE_BEGIN
  *	      which the implementation will force the ``russian roulette'' path
  *	      termination probabilities to be less than unity. \default{\code{100}}
  *	   }
+ *	   \parameter{rrTargetThroughput}{\Float}{The ``russian roulette'' path
+ *	      termination criterion will try to keep the path weights at or
+ *	      above this value. When the interesting parts of the scene end up
+ *	      being much less bright than the light sources, setting this to a
+ *	      lower value can be beneficial.
+ *	      \default{\code{1.0}}
+ *	   }
  *	   \parameter{luminanceSamples}{\Integer}{
  *	      MLT-type algorithms create output images that are only
  *	      \emph{relative}. The algorithm can e.g. determine that a certain pixel
@@ -157,17 +164,13 @@ public:
 		/* Note: a bunch of the parameters below are not publicly exposed,
 		   because there is really little sense for most users to ever change them. */
 
+		m_config.rr = RussianRoulette(props);
+
 		/* Longest visualized path length (<tt>-1</tt>=infinite).
 		   A value of <tt>1</tt> will visualize only directly visible light
 		   sources. <tt>2</tt> will lead to single-bounce (direct-only)
 		   illumination, and so on. */
 		m_config.maxDepth = props.getInteger("maxDepth", -1);
-
-		/* Depth to begin using russian roulette (set to -1 to disable) */
-		m_config.rrDepth = props.getInteger("rrDepth", 5);
-
-		/* Depth to begin forcing russian roulette (set to -1 to disable) */
-		m_config.rrForcedDepth = props.getInteger("rrForcedDepth", 100);
 
 		/* If set to <tt>true</tt>, the MLT algorithm runs on top of a
 		   bidirectional path tracer with multiple importance sampling.
@@ -356,8 +359,8 @@ public:
 		std::vector<PathSeed> pathSeeds;
 		ref<ReplayableSampler> rplSampler = new ReplayableSampler();
 		ref<PathSampler> pathSampler = new PathSampler(m_config.technique, scene,
-			rplSampler, rplSampler, rplSampler, m_config.maxDepth, m_config.rrDepth,
-			m_config.rrForcedDepth, m_config.separateDirect, m_config.directSampling);
+			rplSampler, rplSampler, rplSampler, m_config.maxDepth, m_config.rr,
+			m_config.separateDirect, m_config.directSampling);
 
 		ref<PSSMLTProcess> process = new PSSMLTProcess(job, queue,
 				m_config, directImage, pathSeeds);

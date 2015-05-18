@@ -82,8 +82,7 @@ public:
 
 		m_pathSampler = new PathSampler(m_config.technique, m_scene,
 			m_emitterSampler, m_sensorSampler, m_directSampler, m_config.maxDepth,
-			m_config.rrDepth, m_config.rrForcedDepth, m_config.separateDirect,
-			m_config.directSampling);
+			m_config.rr, m_config.separateDirect, m_config.directSampling);
 	}
 
 	void process(const WorkUnit *workUnit, WorkResult *workResult, const bool &stop) {

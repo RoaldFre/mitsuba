@@ -78,8 +78,10 @@ public:
 		m_rplSampler = static_cast<ReplayableSampler*>(
 			static_cast<Sampler *>(getResource("rplSampler"))->clone().get());
 
+		Properties props;
+		RussianRoulette rr(props); // initialize default rr
 		m_pathSampler = new PathSampler(PathSampler::EBidirectional, m_scene,
-			m_rplSampler, m_rplSampler, m_rplSampler, m_config.maxDepth, 10, 100,
+			m_rplSampler, m_rplSampler, m_rplSampler, m_config.maxDepth, rr,
 			m_config.separateDirect, true);
 
 		m_pool = &m_pathSampler->getMemoryPool();

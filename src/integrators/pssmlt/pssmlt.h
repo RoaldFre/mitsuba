@@ -38,9 +38,8 @@ MTS_NAMESPACE_BEGIN
 struct PSSMLTConfiguration {
 	PathSampler::ETechnique technique;
 	int maxDepth;
+	RussianRoulette rr;
 	bool directSampling;
-	int rrDepth;
-	int rrForcedDepth;
 	bool separateDirect;
 	Float luminance;
 	Float pLarge;
@@ -74,8 +73,7 @@ struct PSSMLTConfiguration {
 			separateDirect ? "yes" : "no");
 		SLog(EDebug, "   Direct sampling strategies  : %s",
 			directSampling ? "yes" : "no");
-		SLog(EDebug, "   Russian roulette depth      : %i", rrDepth);
-		SLog(EDebug, "   Russian roulette force depth: %i", rrForcedDepth);
+		SLog(EDebug, "   Russian roulette            : %s", rr.toString().c_str());
 		SLog(EDebug, "   Large step probability      : %f", pLarge);
 		SLog(EDebug, "   Kelemen et al. weights      : %s",
 			kelemenStyleWeights ? "yes" : "no");
@@ -89,12 +87,10 @@ struct PSSMLTConfiguration {
 			SLog(EDebug, "   Timeout                     : " SIZE_T_FMT,  timeout);
 	}
 
-	inline PSSMLTConfiguration(Stream *stream) {
+	inline PSSMLTConfiguration(Stream *stream) : rr(stream) {
 		technique = (PathSampler::ETechnique) stream->readUInt();
 		maxDepth = stream->readInt();
 		directSampling = stream->readBool();
-		rrDepth = stream->readInt();
-		rrForcedDepth = stream->readInt();
 		separateDirect = stream->readBool();
 		luminance = stream->readFloat();
 		pLarge = stream->readFloat();
@@ -118,11 +114,10 @@ struct PSSMLTConfiguration {
 	}
 
 	inline void serialize(Stream *stream) const {
+		rr.serialize(stream);
 		stream->writeUInt((uint32_t) technique);
 		stream->writeInt(maxDepth);
 		stream->writeBool(directSampling);
-		stream->writeInt(rrDepth);
-		stream->writeInt(rrForcedDepth);
 		stream->writeBool(separateDirect);
 		stream->writeFloat(luminance);
 		stream->writeFloat(pLarge);
