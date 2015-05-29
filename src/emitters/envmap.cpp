@@ -607,7 +607,7 @@ public:
 			math::safe_acos(d.y) * INV_PI
 		);
 
-		if (EXPECT_NOT_TAKEN(!std::isfinite(uv.x) || !std::isfinite(uv.y))) {
+		if (EXPECT_NOT_TAKEN(!uv.isFinite())) {
 			Log(EWarn, "pdfDirect(): encountered a NaN!");
 			return 0.0f;
 		}

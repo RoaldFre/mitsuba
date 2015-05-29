@@ -150,6 +150,11 @@ template <typename T> struct TVector1 {
 		return x == 0;
 	}
 
+	/// Return whether or not this vector has finite, valid components
+	bool isFinite() const {
+		return std::isfinite(x);
+	}
+
 	/// Equality test
 	bool operator==(const TVector1 &v) const {
 		return v.x == x;
@@ -372,6 +377,11 @@ template <typename T> struct TVector2 {
 		return x == 0 && y == 0;
 	}
 
+	/// Return whether or not this vector has finite, valid components
+	bool isFinite() const {
+		return std::isfinite(x) && std::isfinite(y);
+	}
+
 	/// Equality test
 	bool operator==(const TVector2 &v) const {
 		return (v.x == x && v.y == y);
@@ -575,6 +585,11 @@ template <typename T> struct TVector3 {
 	/// Return whether or not this vector is identically zero
 	bool isZero() const {
 		return x == 0 && y == 0 && z == 0;
+	}
+
+	/// Return whether or not this vector has finite, valid components
+	bool isFinite() const {
+		return std::isfinite(x) && std::isfinite(y) && std::isfinite(z);
 	}
 
 	/// Equality test
@@ -788,6 +803,12 @@ template <typename T> struct TVector4 {
 	/// Return whether or not this vector is identically zero
 	bool isZero() const {
 		return x == 0 && y == 0 && z == 0 && w == 0;
+	}
+
+	/// Return whether or not this vector has finite, valid components
+	bool isFinite() const {
+		return std::isfinite(x) && std::isfinite(y)
+				&& std::isfinite(z) && std::isfinite(w);
 	}
 
 	/// Equality test

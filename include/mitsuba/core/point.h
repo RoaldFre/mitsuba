@@ -158,6 +158,11 @@ template <typename T> struct TPoint1 {
 		return x == 0;
 	}
 
+	/// Return whether or not this point has finite, valid components
+	bool isFinite() const {
+		return std::isfinite(x);
+	}
+
 	/// Equality test
 	bool operator==(const TPoint1 &v) const {
 		return (v.x == x);
@@ -353,6 +358,11 @@ template <typename T> struct TPoint2 {
 		return x == 0 && y == 0;
 	}
 
+	/// Return whether or not this point has finite, valid components
+	bool isFinite() const {
+		return std::isfinite(x) && std::isfinite(y);
+	}
+
 	/// Equality test
 	bool operator==(const TPoint2 &v) const {
 		return (v.x == x && v.y == y);
@@ -545,6 +555,11 @@ template <typename T> struct TPoint3 {
 	/// Return whether or not this point is identically zero
 	bool isZero() const {
 		return x == 0 && y == 0 && z == 0;
+	}
+
+	/// Return whether or not this point has finite, valid components
+	bool isFinite() const {
+		return std::isfinite(x) && std::isfinite(y) && std::isfinite(z);
 	}
 
 	/// Equality test
@@ -743,6 +758,12 @@ template <typename T> struct TPoint4 {
 	/// Return whether or not this point is identically zero
 	bool isZero() const {
 		return x == 0 && y == 0 && z == 0 && w == 0;
+	}
+
+	/// Return whether or not this point has finite, valid components
+	bool isFinite() const {
+		return std::isfinite(x) && std::isfinite(y)
+				&& std::isfinite(z) && std::isfinite(w);
 	}
 
 	/// Equality test

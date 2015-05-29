@@ -60,13 +60,13 @@ public:
 
 				SAssert(std::isfinite(pdf) && pdf > 0);
 				SAssert(std::isfinite(pdf_ref) && pdf_ref > 0);
-				SAssert(std::isfinite(m.x) && std::isfinite(m.y) && std::isfinite(m.z));
+				SAssert(m.isFinite());
 				SAssert(std::abs(m.length() - 1) < 1e-4f);
 				SAssert(std::abs((pdf-pdf_ref)/pdf_ref) < 1e-4f);
 				return boost::make_tuple(m, 1.0f, ESolidAngle);
 			} else {
 				Normal m = m_distr.sampleVisible(m_wi, m_sampler->next2D());
-				SAssert(std::isfinite(m.x) && std::isfinite(m.y) && std::isfinite(m.z));
+				SAssert(m.isFinite());
 				SAssert(std::abs(m.length() - 1) < 1e-4f);
 				return boost::make_tuple(m, 1.0f, ESolidAngle);
 			}

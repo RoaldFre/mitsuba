@@ -115,9 +115,7 @@ bool ShapeKDTree::rayIntersect(const Ray &ray, Intersection &its) const {
 	Float mint, maxt;
 
 	#if defined(MTS_FP_DEBUG_STRICT)
-		Assert(
-			std::isfinite(ray.o.x) && std::isfinite(ray.o.y) && std::isfinite(ray.o.z) &&
-			std::isfinite(ray.d.x) && std::isfinite(ray.d.y) && std::isfinite(ray.d.z));
+		Assert(ray.o.isFinite() && ray.d.isFinite());
 	#endif
 
 	++raysTraced;

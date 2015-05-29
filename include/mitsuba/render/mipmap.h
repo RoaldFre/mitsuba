@@ -573,7 +573,7 @@ public:
 	 * bilinear interpolation. The desired MIP level must be specified
 	 */
 	inline Value evalBilinear(int level, const Point2 &uv) const {
-		if (EXPECT_NOT_TAKEN(!std::isfinite(uv.x) || !std::isfinite(uv.y))) {
+		if (EXPECT_NOT_TAKEN(!uv.isFinite())) {
 			Log(EWarn, "evalBilinear(): encountered a NaN!");
 			return Value(0.0f);
 		} else if (EXPECT_NOT_TAKEN(level >= m_levels)) {
@@ -599,7 +599,7 @@ public:
 	 * \brief Evaluate the gradient of the texture at the given MIP level
 	 */
 	inline void evalGradientBilinear(int level, const Point2 &uv, Value *gradient) const {
-		if (EXPECT_NOT_TAKEN(!std::isfinite(uv.x) || !std::isfinite(uv.y))) {
+		if (EXPECT_NOT_TAKEN(!uv.isFinite())) {
 			Log(EWarn, "evalGradientBilinear(): encountered a NaN!");
 			gradient[0] = gradient[1] = Value(0.0f);
 			return;
