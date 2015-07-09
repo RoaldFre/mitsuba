@@ -94,10 +94,9 @@ void Logger::log(ELogLevel level, const Class *theClass,
 	std::string text = m_formatter->format(level, theClass,
 		Thread::getThread(), msg, file, line);
 
-	if (msg != tmp)
-		delete[] msg;
-
 	if (level < m_errorLevel) {
+		if (msg != tmp)
+			delete[] msg;
 		LockGuard lock(m_mutex);
 		if (level >= EWarn)
 			m_warningCount++;
@@ -144,6 +143,8 @@ void Logger::log(ELogLevel level, const Class *theClass,
 		fmt.setHaveLogLevel(false);
 		text = fmt.format(level, theClass,
 			Thread::getThread(), msg, file, line);
+		if (msg != tmp)
+			delete[] msg;
 		throw std::runtime_error(text);
 	}
 }
