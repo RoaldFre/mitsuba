@@ -28,9 +28,7 @@
 #include <boost/spirit/include/phoenix_operator.hpp>
 #include <boost/spirit/include/phoenix_stl.hpp>
 #include <boost/spirit/home/qi/numeric/real.hpp>
-#include <boost/spirit/home/phoenix/bind/bind_member_variable.hpp>
-#include <boost/spirit/home/phoenix/bind/bind_member_function.hpp>
-#include <boost/spirit/home/phoenix/statement/if.hpp>
+#include <boost/spirit/include/phoenix.hpp>
 
 MTS_NAMESPACE_BEGIN
 
