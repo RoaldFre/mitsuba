@@ -462,7 +462,7 @@ public:
 	/**
 	 * When forcing termination for path longer than \c forcedDepth, use
 	 * this probability as an upper bound of the continuation probability. */
-	static const Float FORCED_MAX_PROB = 0.95f;
+	static const Float FORCED_MAX_PROB;
 
 	/// Default constructor, disables Russian roulette.
 	inline RussianRoulette() {

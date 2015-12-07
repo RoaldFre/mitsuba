@@ -22,6 +22,8 @@
 
 MTS_NAMESPACE_BEGIN
 
+const Float RussianRoulette::FORCED_MAX_PROB = 0.95f;
+
 Integrator::Integrator(const Properties &props)
  : NetworkedObject(props) { }
 
