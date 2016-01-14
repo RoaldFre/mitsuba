@@ -253,7 +253,7 @@ void ParticleTracer::process(const WorkUnit *workUnit, WorkResult *workResult,
 				ray.mint = Epsilon;
 			}
 
-			Float q = m_rr.roulette(depth, throughput, eta, m_sampler);
+			Float q = m_rr.roulette(depth++, throughput, eta, m_sampler);
 			if (q == 0.0f)
 				break;
 			throughput /= q;
