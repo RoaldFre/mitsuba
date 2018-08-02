@@ -1833,10 +1833,11 @@ FINLINE void FwdScat::implDirectionBoundaryAwareMonopole_bis(
          * inconsistencies otherwise. */
     }
     double cosTheta, cosThetaPdf;
+    const Vector3d u0d(u0);
     if (sampler) {
         cosThetaPdf = sampleExpSinCos_dCos(a, b, cosTheta, sampler);
     } else {
-        cosTheta = dot(u0,z);
+        cosTheta = dot(u0d,z);
         FSAssert(-1-Epsilon <= cosTheta && cosTheta <= Epsilon);
         cosTheta = math::clamp(cosTheta, -1.0, 0.0);
         cosThetaPdf = sampleExpSinCos_dCos(a, b, cosTheta, NULL);
@@ -1851,7 +1852,7 @@ FINLINE void FwdScat::implDirectionBoundaryAwareMonopole_bis(
     if (sampler) {
         phiPdf = sampleExpCos_dPhi(phiCte, phi, sampler);
     } else {
-        phi = atan2(dot(u0,y), dot(u0,x));
+        phi = atan2(dot(u0d,y), dot(u0d,x));
         phiPdf = sampleExpCos_dPhi(phiCte, phi, NULL);
     }
     if (phiPdf == 0)
@@ -1860,7 +1861,7 @@ FINLINE void FwdScat::implDirectionBoundaryAwareMonopole_bis(
     double sinPhi, cosPhi;
     math::sincos(phi, &sinPhi, &cosPhi);
 
-    Vector constructed_u0 = x * cosPhi*sinTheta  +  y * sinPhi*sinTheta  +  z * cosTheta;
+    Vector constructed_u0 = Vector(x * cosPhi*sinTheta  +  y * sinPhi*sinTheta  +  z * cosTheta);
     FSAssert(math::abs(constructed_u0.length() - 1) < Epsilon);
 
     if (sampler) {

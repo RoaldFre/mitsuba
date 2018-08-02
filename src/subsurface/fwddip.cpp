@@ -157,7 +157,7 @@ public:
             return false;
         Float phi = sampler->next1D() * TWO_PI;
         Float sinPhi,cosPhi;
-        sincos(phi, &sinPhi, &cosPhi);
+		math::sincos(phi, &sinPhi, &cosPhi);
         Float r = 1 - sqrt(1 - sampler->next1D());
         x[0] = sinPhi * r / p;
         x[1] = cosPhi * r / p;
