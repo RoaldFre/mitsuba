@@ -332,7 +332,7 @@ inline Float truncnorm(const Float mean,
    Float c_stdlow = (c_low - c_mean) / c_sd ;
    Float c_stdhigh = (c_high - c_mean) / c_sd ; // bounds are standardized
 
-   const Float INFINITY = std::numeric_limits<Float>::infinity();
+   const Float INF = std::numeric_limits<Float>::infinity();
 
 
   // Map Conceptual Cases to Algorithm Cases
@@ -347,7 +347,7 @@ inline Float truncnorm(const Float mean,
   // Case 2 (Robert 2009 AR)
   // mu < low, high = Inf
   if (0 < c_stdlow &&
-      c_stdhigh == INFINITY
+      c_stdhigh == INF
       ) {
     type = 2 ;
   }
@@ -355,7 +355,7 @@ inline Float truncnorm(const Float mean,
   // Case 3 (Robert 2009 AR)
   // high < mu, low = -Inf
   if (0 > c_stdhigh &&
-      c_stdlow == -INFINITY
+      c_stdlow == -INF
       ) {
     type = 3 ;
   }
@@ -363,7 +363,7 @@ inline Float truncnorm(const Float mean,
   // Case 4 (Robert 2009 AR)
   // mu -\in [low, high] & (abs(low) =\= Inf =\= high)
   if ((0 > c_stdhigh || 0 < c_stdlow) &&
-      !(c_stdhigh == INFINITY || c_stdlow == -INFINITY)
+      !(c_stdhigh == INF || c_stdlow == -INF)
       ) {
     type = 4 ;
   }
@@ -383,7 +383,7 @@ inline Float truncnorm(const Float mean,
   ////////////
   if (type == 3) {
     c_stdlow = -1 * c_stdhigh ;
-    c_stdhigh = INFINITY ;
+    c_stdhigh = INF ;
     c_sd = -1 * c_sd ; // hack to get two negative signs to cancel out
 
     // Use Algorithm #2 Post-Adjustments
