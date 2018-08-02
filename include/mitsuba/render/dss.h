@@ -28,6 +28,7 @@
 #include <gsl/gsl_sf_lambert.h>
 
 #include <iomanip>
+#include <functional>
 
 /* When sampling a surface through projection, don't accept the sample if
  * the cosine of the angle between the sampled surface normal and the
