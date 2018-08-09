@@ -65,7 +65,7 @@ static ref<Mutex> mutex = new Mutex;
  *         Optional scale factor that will be applied to the \code{sigma*} parameters.
  *         It is provided for convenience when accomodating data based on different units,
  *         or to simply tweak the density of the medium. \default{1}}
- *     
+ *
  * }
  *
  * \renderings{
@@ -74,7 +74,7 @@ static ref<Mutex> mutex = new Mutex;
  * }
 
  * This plugin implements the single scattering model in participating media
- * \cite{Holzschuch2015}.  
+ * \cite{Holzschuch2015}.
  *
  * There are two different ways of configuring the medium properties.
  * One possibility is to load a material preset
@@ -100,10 +100,10 @@ static ref<Mutex> mutex = new Mutex;
  *
  *
  * \remarks{
- *    \item This plugin implements only the single scattering 
+ *    \item This plugin implements only the single scattering
  *    component.
- *    Single scattering comes in two flavors: fast, the default straight line 
- *    approximation (with multiple samples along the line), and slow, that is 
+ *    Single scattering comes in two flavors: fast, the default straight line
+ *    approximation (with multiple samples along the line), and slow, that is
  *    the accurate version described in \cite{Holzschuch2015}.
  *
  *   \item It is quite important that the \code{sigma*} parameters have the right units.
