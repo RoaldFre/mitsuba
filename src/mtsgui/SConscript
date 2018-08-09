@@ -25,7 +25,10 @@ if hasQt:
         qtEnv.Append(CPPPATH=['#src/mtsgui'])
         if qtEnv.has_key('QTINCLUDE'):
                 qtEnv.Prepend(CPPPATH=qtEnv['QTINCLUDE'])
-        qtEnv.EnableQt5Modules(['QtGui', 'QtWidgets', 'QtCore', 'QtOpenGL', 'QtXml', 'QtXmlPatterns', 'QtNetwork'])
+        try:
+                qtEnv.EnableQt5Modules(['QtGui', 'QtWidgets', 'QtCore', 'QtOpenGL', 'QtXml', 'QtXmlPatterns', 'QtNetwork'])
+        except:
+                qtEnv.EnableQt5Modules(['Qt5Gui', 'Qt5Widgets', 'Qt5Core', 'Qt5OpenGL', 'Qt5Xml', 'Qt5XmlPatterns', 'Qt5Network'])
 
         if sys.platform == 'win32':
                 index = qtEnv['CXXFLAGS'].index('_CONSOLE')
@@ -35,15 +38,10 @@ if hasQt:
                 del qtEnv['LINKFLAGS'][index]
                 qtEnv.Append(CXXFLAGS=['/D', '_WINDOWS', '/D', 'MTS_CUSTOM_QTMAIN', '/D', 'MTSGUI_STATIC_QFILEDIALOG=1'])
                 qtEnv.Append(LINKFLAGS=['/SUBSYSTEM:WINDOWS'])
-                if hasBreakpad:
-                        qtEnv.Append(CPPPATH=['#dependencies/include/breakpad'])
-                        qtEnv.Append(LIBS=['breakpad_common', 'breakpad_exception_handler', 'breakpad_crash_generation_client',
-                                'breakpad_crash_report_sender', 'wininet'])
+                qtEnv.Append(LIBS=['qtmain', 'shell32'])
         elif sys.platform == 'darwin':
                 qtEnv.Append(LINKFLAGS=['-Fdependencies/frameworks', '-framework',
                         'BWToolkitFramework', '-framework', 'Security', '-framework', 'CoreFoundation'])
-                if hasBreakpad:
-                        qtEnv.Append(LINKFLAGS=['-framework', 'Breakpad'])
                 # Qt 4 headers cause a lot of warnings on clang/OSX -- turn them off
                 if qtEnv['CXX'] == 'clang++':
                         qtEnv.Append(CPPFLAGS=['-Wno-unused-private-field', '-Wno-uninitialized'])
@@ -52,7 +50,7 @@ if hasQt:
         bpath = env.GetBuildPath('#src/mtsgui')
         qtInterfaces = [qtEnv.Uic5(uic) for uic in scanFiles(bpath, ['*.ui'])]
         qtResources = [qtEnv.Qrc(qrc) for qrc in scanFiles(bpath, ['*.qrc'])]
-        qtSources = scanFiles(bpath, ['*.cpp']) + qtResources + resources
+        qtSources = list(scanFiles(bpath, ['*.cpp'])) + qtResources + resources
 
         if hasCollada:
                 qtSources += converter_objects

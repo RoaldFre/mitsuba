@@ -633,8 +633,8 @@ void Thread::initializeOpenMP(size_t threadCount) {
             }
             const std::string threadName = "Mitsuba: " + thread->getName();
 
-            #if defined(__LINUX__)
-                prctl(PR_SET_NAME, threadName.c_str());
+            #if defined(__LINUX__) 
+                pthread_setname_np(pthread_self(), threadName.c_str());
             #elif defined(__OSX__)
                 pthread_setname_np(threadName.c_str());
             #elif defined(__WINDOWS__)
