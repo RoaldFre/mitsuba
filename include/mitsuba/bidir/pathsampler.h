@@ -182,7 +182,7 @@ public:
      * the random number stream of the underlying \ref ReplayableSampler
      * to the indicated position and recreates the associated path.
      */
-    void reconstructPath(const PathSeed &seed, 
+    void reconstructPath(const PathSeed &seed,
         const Bitmap *importanceMap, Path &result);
 
     /// Return the underlying memory pool

@@ -308,12 +308,12 @@ public:
     /// Current number of path splits (0 means no splits) (*)
     int splits;
 
-    /** 
+    /**
      * \brief Global throughput of the path so far.
      *
-     * In case the integrator gets called as a sub-integrator, then this 
-     * should be set to the throughput of the path so far. It is used 
-     * internally for path splitting and Russian Roulette decisions. It is 
+     * In case the integrator gets called as a sub-integrator, then this
+     * should be set to the throughput of the path so far. It is used
+     * internally for path splitting and Russian Roulette decisions. It is
      * *NOT* used to rescale the returned Li. */
     Spectrum throughput;
 
@@ -351,15 +351,15 @@ public:
         RadianceQueryRecord &rRec) const = 0;
 
 
-    /** 
+    /**
      * \brief Generate a sample of the irradiance at a given surface point.
      *
-     * This implementation samples either the direct irradiance or the 
-     * indirect irradiance over a cosine weighted hemisphere, based on the 
-     * probability \c indirectProb. The sampled incoming direction is 
+     * This implementation samples either the direct irradiance or the
+     * indirect irradiance over a cosine weighted hemisphere, based on the
+     * probability \c indirectProb. The sampled incoming direction is
      * stored in \c d. */
     Spectrum Esample(const Scene *scene, const Intersection &its,
-            const Medium *medium, Vector &d, Sampler *sampler, Float 
+            const Medium *medium, Vector &d, Sampler *sampler, Float
             indirectProb, int depth = 0) const;
 
     /**
@@ -538,7 +538,7 @@ public:
         SLog(EDebug, "Loaded RussianRoulette with rrDepth %d, "
                 "rrForcedDepth %d, maxSplits %d, rrTargetLowerThroughput %f, "
                 "rrTargetUpperThroughput %f",
-                startDepth, forcedDepth, maxSplits, targetLowerThroughput, 
+                startDepth, forcedDepth, maxSplits, targetLowerThroughput,
                 targetUpperThroughput);
     }
     /// Unserialize from a stream.
@@ -571,8 +571,8 @@ public:
     /**
      * Performs a Russian Roulette path termination decision.
      *
-     * Tries to keep path weights greater than or equal to 
-     * targetLowerThroughput, while accounting for the solid angle 
+     * Tries to keep path weights greater than or equal to
+     * targetLowerThroughput, while accounting for the solid angle
      * compression at refractive index boundaries.
      * For depths greater than forcedDepth (if positive): stop with at
      * least some probability to avoid getting stuck (e.g. due to total
@@ -638,15 +638,15 @@ public:
     /**
      * Performs a path splitting decision.
      *
-     * Tries to keep path weights less than or equal to 
-     * targetUpperThroughput, while accounting for the solid angle 
-     * compression at refractive index boundaries. For depths greater than 
-     * forcedDepth (if positive): stop with at least some probability to 
+     * Tries to keep path weights less than or equal to
+     * targetUpperThroughput, while accounting for the solid angle
+     * compression at refractive index boundaries. For depths greater than
+     * forcedDepth (if positive): stop with at least some probability to
      * avoid getting stuck (e.g. due to total internal reflection).
      *
      * \param splits
-     *    Use this to provide the total number of splits that have happened 
-     *    on the current path so far. This gets incremented with the number 
+     *    Use this to provide the total number of splits that have happened
+     *    on the current path so far. This gets incremented with the number
      *    of splits that should be performed (i.e. the return value).
      * \param throughput
      *    The current path throughput (corrected for previous Russian
@@ -654,8 +654,8 @@ public:
      * \param eta
      *    The ratio of indices of refraction accumulated along the path.
      * \return
-     *    The number of splits to perform (0 means continue with the 
-     *    current single path, 1 means split once and continue with two 
+     *    The number of splits to perform (0 means continue with the
+     *    current single path, 1 means split once and continue with two
      *    paths, etc).
      */
     inline int split(int &splits, const Spectrum &throughput,
@@ -704,7 +704,7 @@ public:
     /// Serialize this integrator to a binary data stream
     void serialize(Stream *stream, InstanceManager *manager) const;
 
-    const RussianRoulette &getRR() const { return m_rr; } 
+    const RussianRoulette &getRR() const { return m_rr; }
     int getMaxDepth() const { return m_maxDepth; }
     bool strictNormals() const { return m_strictNormals; }
     bool hideEmitters() const { return m_hideEmitters; }

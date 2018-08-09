@@ -207,13 +207,13 @@ static void uniformToTruncatedExponentialImpl(Float original_lambda,
     }
 
     if ((hi - lo)*lambda < Epsilon) {
-        /* Expansion in small lambda, up to second order. Expansion is 
+        /* Expansion in small lambda, up to second order. Expansion is
          * neccesary to avoid catastrophic cancellation. */
         Float d = hi - lo;
         Float d2 = d*d;
         Float d3 = d*d2;
         if (u_) {
-            /* The expanded x is still guaranteed to stay within bounds, but 
+            /* The expanded x is still guaranteed to stay within bounds, but
              * clamp to protect against roundoff */
             x = math::clamp(lo + d*u - 0.5f*u*(u-1.f)*d2*lambda
                     + 1.f/6.f*(2.f*u-1.f)*(u-1.f)*u*d3*lambda*lambda, lo, hi);
@@ -234,7 +234,7 @@ static void uniformToTruncatedExponentialImpl(Float original_lambda,
             x = math::clamp(hi + std::log(u) / lambda,
                     lo, hi);
             if (x < lo) {
-                /* *INSANELY* unlikely (pdf below would probably cut off to 
+                /* *INSANELY* unlikely (pdf below would probably cut off to
                  * zero anyway, but universe would die of heat death first) */
                 SLog(EWarn, "Woah! Universe should have encountered heat death, "
                         "or code is bugged -- x: %f < lo %f", x, lo);

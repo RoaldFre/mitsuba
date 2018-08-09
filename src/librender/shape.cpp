@@ -75,11 +75,11 @@ void Shape::configure() {
         Log(EError, "Shape \"%s\" has an index-matched BSDF and an "
             "emitter/sensor attachment. This is not allowed!", getName().c_str());
 
-    /* If we have a null bsdf and a subsurface scattering model, then this 
-     * only 'somewhat' makes sense for an index-matched 
-     * DirectSamplingSubsurface. The problem with using an ENull BSDF is 
-     * that shadow rays aren't blocked, though. So even for a trivial 
-     * index-matched boundary, a full blown smooth dielectric BSDF is 
+    /* If we have a null bsdf and a subsurface scattering model, then this
+     * only 'somewhat' makes sense for an index-matched
+     * DirectSamplingSubsurface. The problem with using an ENull BSDF is
+     * that shadow rays aren't blocked, though. So even for a trivial
+     * index-matched boundary, a full blown smooth dielectric BSDF is
      * needed (with intIOR == extIOR). */
     if ((m_bsdf->getType() & BSDF::ENull) && hasSubsurface())
         Log(EError, "Shape \"%s\" incorrectly has an index-matched 'null' "

@@ -95,7 +95,7 @@ MTS_NAMESPACE_BEGIN
  * several monochromatic images separately (using only the coefficients for
  * a single channel) and then merge them back into a RGB image. There
  * is a \code{mtsutil} (\secref{mtsutil}) plugin named \code{joinrgb}
- * that will perform this RGB merging process. The \code{autosingle} 
+ * that will perform this RGB merging process. The \code{autosingle}
  * strategy does a similar thing automatically.
  *
  * \begin{table}[h!]

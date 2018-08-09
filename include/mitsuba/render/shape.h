@@ -119,13 +119,13 @@ public:
             const Vector &d, const Spectrum &throughput, int depth=0) const;
 
     /**
-     * \brief Returns incoming radiance from a subsurface integrator, into 
+     * \brief Returns incoming radiance from a subsurface integrator, into
      * direction d.
      *
-     * \remark The difference between \c LoSub and \c LiSub are that this 
-     * latter should be called after handling the surface bsdf of the 
-     * medium. It is therefore more precise by taking the boundary 
-     * explicitly into account. The throughput thus far is required for 
+     * \remark The difference between \c LoSub and \c LiSub are that this
+     * latter should be called after handling the surface bsdf of the
+     * medium. It is therefore more precise by taking the boundary
+     * explicitly into account. The throughput thus far is required for
      * proper Russian Roulette termination on internal reflections.
      *
      * \remark The direction should point away from the subsurface medium.

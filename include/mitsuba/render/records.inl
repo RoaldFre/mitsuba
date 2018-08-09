@@ -63,13 +63,13 @@ inline Spectrum Intersection::Le(const Vector &d) const {
 }
 
 inline Spectrum Intersection::LoSub(const Scene *scene,
-        Sampler *sampler, const Vector &d, 
+        Sampler *sampler, const Vector &d,
         const Spectrum &throughput, int depth) const {
     return shape->getSubsurface()->Lo(scene, sampler, *this, d, throughput, depth);
 }
 
 inline Spectrum Intersection::LiSub(const Scene *scene,
-        Sampler *sampler, const Vector &d, 
+        Sampler *sampler, const Vector &d,
         const Spectrum &throughput, int &splits, int depth) const {
     return shape->getSubsurface()->Li(scene, sampler, *this, d, throughput, splits, depth);
 }

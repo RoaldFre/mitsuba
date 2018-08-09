@@ -271,7 +271,7 @@ struct MTS_EXPORT_BIDIR PathVertex {
      *     thus far. It will be updated automatically to account for the current
      *     interaction.
      * \param depth
-     *     If russian roulette is active, this parameter should give the 
+     *     If russian roulette is active, this parameter should give the
      *     deptht of the current path.
      * \return \c true on success
      */

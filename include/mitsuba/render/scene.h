@@ -247,8 +247,8 @@ public:
      * and return detailed intersection information of all intersections
      * along the ray.
      *
-     * Note: No guarantee is made about the ordering of the intersections 
-     * (i.e. they are not guaranteed to be ordered along increasing t 
+     * Note: No guarantee is made about the ordering of the intersections
+     * (i.e. they are not guaranteed to be ordered along increasing t
      * value!)
      *
      * \param ray

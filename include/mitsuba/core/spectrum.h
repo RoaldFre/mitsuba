@@ -614,7 +614,7 @@ public:
     /**
      * \brief Invert this spectrum (1/x) but keep zero channels at zero
      *
-     * This can be used to switch between pdfs and Monte Carlo weights 
+     * This can be used to switch between pdfs and Monte Carlo weights
      * where some spectral channels may not have been able to be sampled.
      */
     inline TSpectrum invertButKeepZero() const {
@@ -915,8 +915,8 @@ public:
     /**
      * \brief Returns the number of non-zero spectral channels
      *
-     * If nonZeroChannel is given, then this gets set to a non-zero 
-     * spectral channel. Useful for when there is only one non-zero 
+     * If nonZeroChannel is given, then this gets set to a non-zero
+     * spectral channel. Useful for when there is only one non-zero
      * spectral channel, for instance. */
     inline int numNonZeroChannels(int *nonZeroChannel = NULL) const {
         int N = 0;

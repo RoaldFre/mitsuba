@@ -37,10 +37,10 @@ MTS_NAMESPACE_BEGIN
  *         factor that can be used to modulate the specular transmission component. Note
  *         that for physical realism, this parameter should never be touched. \default{1.0}}
       \parameter{noExternalReflection}{\Boolean}{
- *         If set to \code{true}, then reflections towards the side with 
+ *         If set to \code{true}, then reflections towards the side with
  *         the lower IOR will be ignored. \default{\code{false}}}}
  *     \parameter{noInternalReflection}{\Boolean}{
- *         If set to \code{true}, then reflections towards the side with 
+ *         If set to \code{true}, then reflections towards the side with
  *         the higher IOR will be ignored. \default{\code{false}}}}
  * }
  *
