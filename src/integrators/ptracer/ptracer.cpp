@@ -25,27 +25,27 @@ MTS_NAMESPACE_BEGIN
  * \parameters{
  *     \parameter{maxDepth}{\Integer}{Specifies the longest path depth
  *         in the generated output image (where \code{-1} corresponds to $\infty$).
- *	       A value of \code{1} will only render directly visible light sources.
- *	       \code{2} will lead to single-bounce (direct-only) illumination,
- *	       and so on. \default{\code{-1}}
- *	   }
- *	   \parameter{rrDepth}{\Integer}{Specifies the minimum path depth, after
- *	      which the implementation will start to use the ``russian roulette''
- *	      path termination criterion. \default{\code{5}}
- *	   }
- *	   \parameter{rrForcedDepth}{\Integer}{Specifies the minimum path depth, after
- *	      which the implementation will force the ``russian roulette'' path
- *	      termination probabilities to be less than unity. A value of \code{-1}
- *	      corresponds to $\infty$.\default{\code{-1}}
- *	   }
- *	   \parameter{rrTargetThroughput}{\Float}{The ``russian roulette'' path
- *	      termination criterion will try to keep the path weights at or
- *	      above this value. When the interesting parts of the scene end up
- *	      being much less bright than the light sources, setting this to a
- *	      lower value can be beneficial.
- *	      \default{\code{1.0}}
- *	   }
- *	   \parameter{granularity}{\Integer}{
+ *         A value of \code{1} will only render directly visible light sources.
+ *         \code{2} will lead to single-bounce (direct-only) illumination,
+ *         and so on. \default{\code{-1}}
+ *     }
+ *     \parameter{rrDepth}{\Integer}{Specifies the minimum path depth, after
+ *        which the implementation will start to use the ``russian roulette''
+ *        path termination criterion. \default{\code{5}}
+ *     }
+ *     \parameter{rrForcedDepth}{\Integer}{Specifies the minimum path depth, after
+ *        which the implementation will force the ``russian roulette'' path
+ *        termination probabilities to be less than unity. A value of \code{-1}
+ *        corresponds to $\infty$.\default{\code{-1}}
+ *     }
+ *     \parameter{rrTargetThroughput}{\Float}{The ``russian roulette'' path
+ *        termination criterion will try to keep the path weights at or
+ *        above this value. When the interesting parts of the scene end up
+ *        being much less bright than the light sources, setting this to a
+ *        lower value can be beneficial.
+ *        \default{\code{1.0}}
+ *     }
+ *     \parameter{granularity}{\Integer}{
  *        Specifies the work unit granularity used to parallize the particle
  *        tracing task. This should be set high enough so that accumulating
  *        partially exposed images (and potentially sending them over the network)
@@ -94,117 +94,117 @@ MTS_NAMESPACE_BEGIN
  */
 class AdjointParticleTracer : public Integrator {
 public:
-	AdjointParticleTracer(const Properties &props) : Integrator(props), m_rr(props) {
-		/* Longest visualized path length (<tt>-1</tt>=infinite).
-		   A value of <tt>1</tt> will produce a black image, since this integrator
-		   does not visualize directly visible light sources,
-		   <tt>2</tt> will lead to single-bounce (direct-only) illumination, and so on. */
-		m_maxDepth = props.getInteger("maxDepth", -1);
+    AdjointParticleTracer(const Properties &props) : Integrator(props), m_rr(props) {
+        /* Longest visualized path length (<tt>-1</tt>=infinite).
+           A value of <tt>1</tt> will produce a black image, since this integrator
+           does not visualize directly visible light sources,
+           <tt>2</tt> will lead to single-bounce (direct-only) illumination, and so on. */
+        m_maxDepth = props.getInteger("maxDepth", -1);
 
-		/* Granularity of the work units used in parallelizing
-		   the particle tracing task (default: 200K samples).
-		   Should be high enough so that sending and accumulating
-		   the partially exposed films is not the bottleneck. */
-		m_granularity = props.getSize("granularity", 200000);
+        /* Granularity of the work units used in parallelizing
+           the particle tracing task (default: 200K samples).
+           Should be high enough so that sending and accumulating
+           the partially exposed films is not the bottleneck. */
+        m_granularity = props.getSize("granularity", 200000);
 
-		/* Rely on hitting the sensor via ray tracing? */
-		m_bruteForce = props.getBoolean("bruteForce", false);
+        /* Rely on hitting the sensor via ray tracing? */
+        m_bruteForce = props.getBoolean("bruteForce", false);
 
-		if (m_maxDepth <= 0 && m_maxDepth != -1)
-			Log(EError, "'maxDepth' must be set to -1 (infinite) or a value greater than zero!");
+        if (m_maxDepth <= 0 && m_maxDepth != -1)
+            Log(EError, "'maxDepth' must be set to -1 (infinite) or a value greater than zero!");
 
-		if (m_maxDepth <= 0 && !m_rr.rouletteEnabled())
-			Log(EError, "Disabling russian roulette and having unlimited path length are mutually exclusive!");
-	}
+        if (m_maxDepth <= 0 && !m_rr.rouletteEnabled())
+            Log(EError, "Disabling russian roulette and having unlimited path length are mutually exclusive!");
+    }
 
-	AdjointParticleTracer(Stream *stream, InstanceManager *manager)
-		: Integrator(stream, manager), m_rr(stream) {
-		m_maxDepth = stream->readInt();
-		m_granularity = stream->readSize();
-		m_bruteForce = stream->readBool();
-	}
+    AdjointParticleTracer(Stream *stream, InstanceManager *manager)
+        : Integrator(stream, manager), m_rr(stream) {
+        m_maxDepth = stream->readInt();
+        m_granularity = stream->readSize();
+        m_bruteForce = stream->readBool();
+    }
 
-	void serialize(Stream *stream, InstanceManager *manager) const {
-		Integrator::serialize(stream, manager);
-		m_rr.serialize(stream);
-		stream->writeInt(m_maxDepth);
-		stream->writeSize(m_granularity);
-		stream->writeBool(m_bruteForce);
-	}
+    void serialize(Stream *stream, InstanceManager *manager) const {
+        Integrator::serialize(stream, manager);
+        m_rr.serialize(stream);
+        stream->writeInt(m_maxDepth);
+        stream->writeSize(m_granularity);
+        stream->writeBool(m_bruteForce);
+    }
 
-	bool preprocess(const Scene *scene, RenderQueue *queue, const RenderJob *job,
-			int sceneResID, int sensorResID, int samplerResID) {
-		Integrator::preprocess(scene, queue, job, sceneResID, sensorResID, samplerResID);
+    bool preprocess(const Scene *scene, RenderQueue *queue, const RenderJob *job,
+            int sceneResID, int sensorResID, int samplerResID) {
+        Integrator::preprocess(scene, queue, job, sceneResID, sensorResID, samplerResID);
 
-		Scheduler *sched = Scheduler::getInstance();
-		const Sensor *sensor = static_cast<Sensor *>(sched->getResource(sensorResID));
-		Vector2i size = sensor->getFilm()->getCropSize();
+        Scheduler *sched = Scheduler::getInstance();
+        const Sensor *sensor = static_cast<Sensor *>(sched->getResource(sensorResID));
+        Vector2i size = sensor->getFilm()->getCropSize();
 
-		if (scene->getSubsurfaceIntegrators().size() > 0)
-			Log(EError, "Subsurface integrators are not supported by the particle tracer!");
-		m_sampleCount = scene->getSampler()->getSampleCount() * size.x * size.y;
-		return true;
-	}
+        if (scene->getSubsurfaceIntegrators().size() > 0)
+            Log(EError, "Subsurface integrators are not supported by the particle tracer!");
+        m_sampleCount = scene->getSampler()->getSampleCount() * size.x * size.y;
+        return true;
+    }
 
-	void cancel() {
-		Scheduler::getInstance()->cancel(m_process);
-	}
+    void cancel() {
+        Scheduler::getInstance()->cancel(m_process);
+    }
 
-	bool render(Scene *scene, RenderQueue *queue,
-		const RenderJob *job, int sceneResID, int sensorResID, int samplerResID) {
-		ref<Scheduler> scheduler = Scheduler::getInstance();
-		ref<Sensor> sensor = scene->getSensor();
-		const Film *film = sensor->getFilm();
-		size_t sampleCount = scene->getSampler()->getSampleCount();
-		size_t nCores = scheduler->getCoreCount();
-		Log(EInfo, "Starting render job (%ix%i, " SIZE_T_FMT " samples, " SIZE_T_FMT
-			" %s, " SSE_STR ") ..", film->getCropSize().x, film->getCropSize().y,
-			sampleCount, nCores, nCores == 1 ? "core" : "cores");
+    bool render(Scene *scene, RenderQueue *queue,
+        const RenderJob *job, int sceneResID, int sensorResID, int samplerResID) {
+        ref<Scheduler> scheduler = Scheduler::getInstance();
+        ref<Sensor> sensor = scene->getSensor();
+        const Film *film = sensor->getFilm();
+        size_t sampleCount = scene->getSampler()->getSampleCount();
+        size_t nCores = scheduler->getCoreCount();
+        Log(EInfo, "Starting render job (%ix%i, " SIZE_T_FMT " samples, " SIZE_T_FMT
+            " %s, " SSE_STR ") ..", film->getCropSize().x, film->getCropSize().y,
+            sampleCount, nCores, nCores == 1 ? "core" : "cores");
 
-		int maxPtracerDepth = m_maxDepth - 1;
+        int maxPtracerDepth = m_maxDepth - 1;
 
-		if ((sensor->getType() & (Emitter::EDeltaDirection
-			| Emitter::EDeltaPosition)) == 0 && sensor->isOnSurface()) {
-			/* The sensor has a finite aperture and a non-degenerate
-			   response function -- trace one more bounce, since we
-			   can actually try to hit its aperture */
-			maxPtracerDepth++;
-		}
+        if ((sensor->getType() & (Emitter::EDeltaDirection
+            | Emitter::EDeltaPosition)) == 0 && sensor->isOnSurface()) {
+            /* The sensor has a finite aperture and a non-degenerate
+               response function -- trace one more bounce, since we
+               can actually try to hit its aperture */
+            maxPtracerDepth++;
+        }
 
-		ref<ParallelProcess> process = new CaptureParticleProcess(
-			job, queue, m_sampleCount, m_granularity, maxPtracerDepth,
-			m_maxDepth, m_rr, m_bruteForce);
+        ref<ParallelProcess> process = new CaptureParticleProcess(
+            job, queue, m_sampleCount, m_granularity, maxPtracerDepth,
+            m_maxDepth, m_rr, m_bruteForce);
 
-		process->bindResource("scene", sceneResID);
-		process->bindResource("sensor", sensorResID);
-		process->bindResource("sampler", samplerResID);
-		scheduler->schedule(process);
-		m_process = process;
-		scheduler->wait(process);
-		m_process = NULL;
+        process->bindResource("scene", sceneResID);
+        process->bindResource("sensor", sensorResID);
+        process->bindResource("sampler", samplerResID);
+        scheduler->schedule(process);
+        m_process = process;
+        scheduler->wait(process);
+        m_process = NULL;
 
-		return process->getReturnStatus() == ParallelProcess::ESuccess;
-	}
+        return process->getReturnStatus() == ParallelProcess::ESuccess;
+    }
 
-	std::string toString() const {
-		std::ostringstream oss;
-		oss << "AdjointParticleTracer[" << endl
-			<< "  maxDepth = " << m_maxDepth << "," << endl
-			<< "  rr = " << m_rr.toString() << "," << endl
-			<< "  granularity = " << m_granularity << "," << endl
-			<< "  bruteForce = " << m_bruteForce << endl
-			<< "]";
-		return oss.str();
-	}
+    std::string toString() const {
+        std::ostringstream oss;
+        oss << "AdjointParticleTracer[" << endl
+            << "  maxDepth = " << m_maxDepth << "," << endl
+            << "  rr = " << m_rr.toString() << "," << endl
+            << "  granularity = " << m_granularity << "," << endl
+            << "  bruteForce = " << m_bruteForce << endl
+            << "]";
+        return oss.str();
+    }
 
 
-	MTS_DECLARE_CLASS()
+    MTS_DECLARE_CLASS()
 protected:
-	ref<ParallelProcess> m_process;
-	int m_maxDepth;
-	RussianRoulette m_rr;
-	size_t m_sampleCount, m_granularity;
-	bool m_bruteForce;
+    ref<ParallelProcess> m_process;
+    int m_maxDepth;
+    RussianRoulette m_rr;
+    size_t m_sampleCount, m_granularity;
+    bool m_bruteForce;
 };
 
 MTS_IMPLEMENT_CLASS_S(AdjointParticleTracer, false, Integrator)

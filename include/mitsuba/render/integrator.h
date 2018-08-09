@@ -49,85 +49,85 @@ MTS_NAMESPACE_BEGIN
  */
 class MTS_EXPORT_RENDER Integrator : public NetworkedObject {
 public:
-	/**
-	 * \brief Possibly perform a pre-process task.
-	 *
-	 * This function is called automatically before the main rendering process;
-	 * the default implementation does nothing.
-	 *
-	 * The last three parameters are resource IDs of the associated scene,
-	 * sensor and sample generator, which have been made available to all
-	 * local and remote workers.i
-	 */
-	virtual bool preprocess(const Scene *scene, RenderQueue *queue,
-		const RenderJob *job, int sceneResID, int sensorResID,
-		int samplerResID);
+    /**
+     * \brief Possibly perform a pre-process task.
+     *
+     * This function is called automatically before the main rendering process;
+     * the default implementation does nothing.
+     *
+     * The last three parameters are resource IDs of the associated scene,
+     * sensor and sample generator, which have been made available to all
+     * local and remote workers.i
+     */
+    virtual bool preprocess(const Scene *scene, RenderQueue *queue,
+        const RenderJob *job, int sceneResID, int sensorResID,
+        int samplerResID);
 
-	/**
-	 * \brief Render the scene as seen by the default sensor.
-	 *
-	 * Progress is tracked by sending status messages to a provided render queue.
-	 * The parameter \c job is required to discern multiple render jobs occurring in
-	 * parallel. The last three parameters are resource IDs of the associated
-	 * scene, sensor and sample generator, which have been made available to
-	 * all local and remote workers. Returns true upon successful completion.
-	 */
-	virtual bool render(Scene *scene, RenderQueue *queue, const RenderJob *job,
-		int sceneResID, int sensorResID, int samplerResID) = 0;
+    /**
+     * \brief Render the scene as seen by the default sensor.
+     *
+     * Progress is tracked by sending status messages to a provided render queue.
+     * The parameter \c job is required to discern multiple render jobs occurring in
+     * parallel. The last three parameters are resource IDs of the associated
+     * scene, sensor and sample generator, which have been made available to
+     * all local and remote workers. Returns true upon successful completion.
+     */
+    virtual bool render(Scene *scene, RenderQueue *queue, const RenderJob *job,
+        int sceneResID, int sensorResID, int samplerResID) = 0;
 
-	/**
-	 * \brief Cancel a running render job
-	 *
-	 * This function can be called asynchronously to cancel a running render
-	 * job. In this case, \ref render() will quit with a return value of
-	 * \c false.
-	 */
-	virtual void cancel() = 0;
+    /**
+     * \brief Cancel a running render job
+     *
+     * This function can be called asynchronously to cancel a running render
+     * job. In this case, \ref render() will quit with a return value of
+     * \c false.
+     */
+    virtual void cancel() = 0;
 
-	/**
-	 * \brief Possibly perform a post-process task.
-	 *
-	 * This function is called automatically before the main rendering process;
-	 * the default implementation does nothing.
-	 *
-	 * The last three parameters are resource IDs of the associated scene,
-	 * sensor and sample generator, which have been made available to all
-	 * local and remote workers.i
-	 */
-	virtual void postprocess(const Scene *scene, RenderQueue *queue,
-		const RenderJob *job, int sceneResID, int sensorResID,
-		int samplerResID);
+    /**
+     * \brief Possibly perform a post-process task.
+     *
+     * This function is called automatically before the main rendering process;
+     * the default implementation does nothing.
+     *
+     * The last three parameters are resource IDs of the associated scene,
+     * sensor and sample generator, which have been made available to all
+     * local and remote workers.i
+     */
+    virtual void postprocess(const Scene *scene, RenderQueue *queue,
+        const RenderJob *job, int sceneResID, int sensorResID,
+        int samplerResID);
 
-	/**
-	 * \brief Configure the sample generator for use with this integrator
-	 *
-	 * This function is called once after instantiation and can be used to
-	 * inform the sampler implementation about specific sample requirements
-	 * of this integrator.
-	 */
-	virtual void configureSampler(const Scene *scene, Sampler *sampler);
+    /**
+     * \brief Configure the sample generator for use with this integrator
+     *
+     * This function is called once after instantiation and can be used to
+     * inform the sampler implementation about specific sample requirements
+     * of this integrator.
+     */
+    virtual void configureSampler(const Scene *scene, Sampler *sampler);
 
-	/**
-	 * \brief Return the nested integrator (if any)
-	 *
-	 * When the integrator contains a nested integrator, this function can
-	 * be used to query for it
-	 */
-	virtual const Integrator *getSubIntegrator(int index) const;
+    /**
+     * \brief Return the nested integrator (if any)
+     *
+     * When the integrator contains a nested integrator, this function can
+     * be used to query for it
+     */
+    virtual const Integrator *getSubIntegrator(int index) const;
 
-	/// Serialize this integrator to a binary data stream
-	void serialize(Stream *stream, InstanceManager *manager) const;
+    /// Serialize this integrator to a binary data stream
+    void serialize(Stream *stream, InstanceManager *manager) const;
 
-	MTS_DECLARE_CLASS()
+    MTS_DECLARE_CLASS()
 protected:
-	/// Create a integrator
-	Integrator(const Properties &props);
+    /// Create a integrator
+    Integrator(const Properties &props);
 
-	/// Unserialize an integrator
-	Integrator(Stream *stream, InstanceManager *manager);
+    /// Unserialize an integrator
+    Integrator(Stream *stream, InstanceManager *manager);
 
-	/// Virtual destructor
-	virtual ~Integrator() { }
+    /// Virtual destructor
+    virtual ~Integrator() { }
 };
 
 /**
@@ -136,205 +136,205 @@ protected:
  */
 struct MTS_EXPORT_RENDER RadianceQueryRecord {
 public:
-	/// List of suported query types. These can be combined by a binary OR.
-	enum ERadianceQuery {
-		/// Emitted radiance from a luminaire intersected by the ray
-		EEmittedRadiance          = 0x0001,
+    /// List of suported query types. These can be combined by a binary OR.
+    enum ERadianceQuery {
+        /// Emitted radiance from a luminaire intersected by the ray
+        EEmittedRadiance          = 0x0001,
 
-		/// Emitted radiance from a subsurface integrator */
-		ESubsurfaceRadiance       = 0x0002,
+        /// Emitted radiance from a subsurface integrator */
+        ESubsurfaceRadiance       = 0x0002,
 
-		/// Direct (surface) radiance */
-		EDirectSurfaceRadiance    = 0x0004,
+        /// Direct (surface) radiance */
+        EDirectSurfaceRadiance    = 0x0004,
 
-		/*! \brief Indirect (surface) radiance, where the last bounce did not go
-		    through a Dirac delta BSDF */
-		EIndirectSurfaceRadiance  = 0x0008,
+        /*! \brief Indirect (surface) radiance, where the last bounce did not go
+            through a Dirac delta BSDF */
+        EIndirectSurfaceRadiance  = 0x0008,
 
-		/*! \brief Indirect (surface) radiance, where the last bounce went
-		   through a Dirac delta BSDF */
-		ECausticRadiance          = 0x0010,
+        /*! \brief Indirect (surface) radiance, where the last bounce went
+           through a Dirac delta BSDF */
+        ECausticRadiance          = 0x0010,
 
-		/// In-scattered radiance due to volumetric scattering (direct)
-		EDirectMediumRadiance     = 0x0020,
+        /// In-scattered radiance due to volumetric scattering (direct)
+        EDirectMediumRadiance     = 0x0020,
 
-		/// In-scattered radiance due to volumetric scattering (indirect)
-		EIndirectMediumRadiance   = 0x0040,
+        /// In-scattered radiance due to volumetric scattering (indirect)
+        EIndirectMediumRadiance   = 0x0040,
 
-		/// Distance to the next surface intersection
-		EDistance                 = 0x0080,
+        /// Distance to the next surface intersection
+        EDistance                 = 0x0080,
 
-		/*! \brief Store an opacity value, which is equal to 1 when a shape
-		   was intersected and 0 when the ray passes through empty space.
-		   When there is a participating medium, it can also take on fractional
-		   values. */
-		EOpacity                  = 0x0100,
+        /*! \brief Store an opacity value, which is equal to 1 when a shape
+           was intersected and 0 when the ray passes through empty space.
+           When there is a participating medium, it can also take on fractional
+           values. */
+        EOpacity                  = 0x0100,
 
-		/*! \brief A ray intersection may need to be performed. This can be set to
-		   zero if the caller has already provided the intersection */
-		EIntersection             = 0x0200,
+        /*! \brief A ray intersection may need to be performed. This can be set to
+           zero if the caller has already provided the intersection */
+        EIntersection             = 0x0200,
 
-		/* Radiance from volumes */
-		EVolumeRadiance           = EDirectMediumRadiance | EIndirectMediumRadiance,
+        /* Radiance from volumes */
+        EVolumeRadiance           = EDirectMediumRadiance | EIndirectMediumRadiance,
 
-		/// Radiance query without emitted radiance, ray intersection required
-		ERadianceNoEmission       = ESubsurfaceRadiance | EDirectSurfaceRadiance
-			| EIndirectSurfaceRadiance | ECausticRadiance | EDirectMediumRadiance
-			| EIndirectMediumRadiance | EIntersection,
+        /// Radiance query without emitted radiance, ray intersection required
+        ERadianceNoEmission       = ESubsurfaceRadiance | EDirectSurfaceRadiance
+            | EIndirectSurfaceRadiance | ECausticRadiance | EDirectMediumRadiance
+            | EIndirectMediumRadiance | EIntersection,
 
-		/// Default radiance query, ray intersection required
-		ERadiance                 = ERadianceNoEmission | EEmittedRadiance,
+        /// Default radiance query, ray intersection required
+        ERadiance                 = ERadianceNoEmission | EEmittedRadiance,
 
-		/// Radiance + opacity
-		ESensorRay                = ERadiance | EOpacity
-	};
+        /// Radiance + opacity
+        ESensorRay                = ERadiance | EOpacity
+    };
 
-	/// Additional flags that can be specified in the \ref extra field
-	enum EExtraFlags {
-		/// This is a query by an irradiance cache
-		ECacheQuery    = 0x01,
-		/// This is a query by an adaptive integrator
-		EAdaptiveQuery = 0x02
-	};
+    /// Additional flags that can be specified in the \ref extra field
+    enum EExtraFlags {
+        /// This is a query by an irradiance cache
+        ECacheQuery    = 0x01,
+        /// This is a query by an adaptive integrator
+        EAdaptiveQuery = 0x02
+    };
 
-	/// Construct an invalid radiance query record
-	inline RadianceQueryRecord()
-	 : type(0), scene(NULL), sampler(NULL), medium(NULL),
-	   depth(0), splits(0), throughput(1.0f), alpha(0), dist(-1), extra(0) {
-	}
+    /// Construct an invalid radiance query record
+    inline RadianceQueryRecord()
+     : type(0), scene(NULL), sampler(NULL), medium(NULL),
+       depth(0), splits(0), throughput(1.0f), alpha(0), dist(-1), extra(0) {
+    }
 
-	/// Construct a radiance query record for the given scene and sampler
-	inline RadianceQueryRecord(const Scene *scene, Sampler *sampler)
-	 : type(0), scene(scene), sampler(sampler), medium(NULL),
-	   depth(0), splits(0), throughput(1.0f), alpha(0), dist(-1), extra(0) {
-	}
+    /// Construct a radiance query record for the given scene and sampler
+    inline RadianceQueryRecord(const Scene *scene, Sampler *sampler)
+     : type(0), scene(scene), sampler(sampler), medium(NULL),
+       depth(0), splits(0), throughput(1.0f), alpha(0), dist(-1), extra(0) {
+    }
 
-	/// Copy constructor
-	inline RadianceQueryRecord(const RadianceQueryRecord &rRec)
-	 : type(rRec.type), scene(rRec.scene), sampler(rRec.sampler), medium(rRec.medium),
-	   depth(rRec.depth), splits(rRec.splits), throughput(rRec.throughput),
-	   alpha(rRec.alpha), dist(rRec.dist), extra(rRec.extra) {
-	}
+    /// Copy constructor
+    inline RadianceQueryRecord(const RadianceQueryRecord &rRec)
+     : type(rRec.type), scene(rRec.scene), sampler(rRec.sampler), medium(rRec.medium),
+       depth(rRec.depth), splits(rRec.splits), throughput(rRec.throughput),
+       alpha(rRec.alpha), dist(rRec.dist), extra(rRec.extra) {
+    }
 
-	/// Begin a new query of the given type
-	inline void newQuery(int _type, const Medium *_medium) {
-		type = _type;
-		medium = _medium;
-		depth = 1;
-		splits = 0;
-		throughput = Spectrum(1.0f);
-		extra = 0;
-		alpha = 1;
-	}
+    /// Begin a new query of the given type
+    inline void newQuery(int _type, const Medium *_medium) {
+        type = _type;
+        medium = _medium;
+        depth = 1;
+        splits = 0;
+        throughput = Spectrum(1.0f);
+        extra = 0;
+        alpha = 1;
+    }
 
-	/// Initialize the query record for a recursive query
-	inline void recursiveQuery(const RadianceQueryRecord &parent, int _type,
-			Spectrum thisWeight = Spectrum(1.0f)) {
-		type = _type;
-		scene = parent.scene;
-		sampler = parent.sampler;
-		depth = parent.depth+1;
-		splits = parent.splits;
-		throughput = parent.throughput * thisWeight;
-		medium = parent.medium;
-		extra = parent.extra;
-	}
+    /// Initialize the query record for a recursive query
+    inline void recursiveQuery(const RadianceQueryRecord &parent, int _type,
+            Spectrum thisWeight = Spectrum(1.0f)) {
+        type = _type;
+        scene = parent.scene;
+        sampler = parent.sampler;
+        depth = parent.depth+1;
+        splits = parent.splits;
+        throughput = parent.throughput * thisWeight;
+        medium = parent.medium;
+        extra = parent.extra;
+    }
 
-	/// Initialize the query record for a recursive query
-	inline void recursiveQuery(const RadianceQueryRecord &parent,
-			Spectrum thisWeight = Spectrum(1.0f)) {
-		type = parent.type | EIntersection;
-		scene = parent.scene;
-		sampler = parent.sampler;
-		depth = parent.depth+1;
-		splits = parent.splits;
-		throughput = parent.throughput * thisWeight;
-		medium = parent.medium;
-		extra = parent.extra;
-	}
+    /// Initialize the query record for a recursive query
+    inline void recursiveQuery(const RadianceQueryRecord &parent,
+            Spectrum thisWeight = Spectrum(1.0f)) {
+        type = parent.type | EIntersection;
+        scene = parent.scene;
+        sampler = parent.sampler;
+        depth = parent.depth+1;
+        splits = parent.splits;
+        throughput = parent.throughput * thisWeight;
+        medium = parent.medium;
+        extra = parent.extra;
+    }
 
-	/**
-	 * \brief Search for a ray intersection
-	 *
-	 * This function does several things at once: if the intersection has
-	 * already been provided, it returns. Otherwise, it performs the ray
-	 * intersection and calls \c setIntersection() on the resulting
-	 * intersection to update the internal bookkeeping.
-	 *
-	 * \return \c true if there is a valid intersection.
-	 */
-	inline bool rayIntersect(const RayDifferential &ray);
+    /**
+     * \brief Search for a ray intersection
+     *
+     * This function does several things at once: if the intersection has
+     * already been provided, it returns. Otherwise, it performs the ray
+     * intersection and calls \c setIntersection() on the resulting
+     * intersection to update the internal bookkeeping.
+     *
+     * \return \c true if there is a valid intersection.
+     */
+    inline bool rayIntersect(const RayDifferential &ray);
 
-	/**
-	 * \brief Set the intersection record and update bookkeeping.
-	 *
-	 * This functions:
-	 * 1. assigns the ray intersection record
-	 * 2. computes the transmittance due to participating media
-	 *    and stores it in \c transmittance.
-	 * 3. sets the alpha value (if \c EAlpha is set in \c type)
-	 * 4. sets the distance value (if \c EDistance is set in \c type)
-	 * 5. clears the \c EIntersection flag in \c type
-	 */
-	inline void setIntersection(const Intersection &its);
+    /**
+     * \brief Set the intersection record and update bookkeeping.
+     *
+     * This functions:
+     * 1. assigns the ray intersection record
+     * 2. computes the transmittance due to participating media
+     *    and stores it in \c transmittance.
+     * 3. sets the alpha value (if \c EAlpha is set in \c type)
+     * 4. sets the distance value (if \c EDistance is set in \c type)
+     * 5. clears the \c EIntersection flag in \c type
+     */
+    inline void setIntersection(const Intersection &its);
 
-	/// Retrieve a 2D sample
-	inline Point2 nextSample2D();
+    /// Retrieve a 2D sample
+    inline Point2 nextSample2D();
 
-	/// Retrieve a 1D sample
-	inline Float nextSample1D();
+    /// Retrieve a 1D sample
+    inline Float nextSample1D();
 
-	/// Return a string representation
-	std::string toString() const;
+    /// Return a string representation
+    std::string toString() const;
 public:
-	// An asterisk (*) marks entries, which may be overwritten
-	// by the callee.
+    // An asterisk (*) marks entries, which may be overwritten
+    // by the callee.
 
-	/// Query type (*)
-	int type;
+    /// Query type (*)
+    int type;
 
-	/// Pointer to the associated scene
-	const Scene *scene;
+    /// Pointer to the associated scene
+    const Scene *scene;
 
-	/// Sample generator
-	Sampler *sampler;
+    /// Sample generator
+    Sampler *sampler;
 
-	/// Pointer to the current medium (*)
-	const Medium *medium;
+    /// Pointer to the current medium (*)
+    const Medium *medium;
 
-	/// Current depth value (# of light bounces) (*)
-	int depth;
+    /// Current depth value (# of light bounces) (*)
+    int depth;
 
-	/// Current number of path splits (0 means no splits) (*)
-	int splits;
+    /// Current number of path splits (0 means no splits) (*)
+    int splits;
 
-	/** 
-	 * \brief Global throughput of the path so far.
-	 *
-	 * In case the integrator gets called as a sub-integrator, then this 
-	 * should be set to the throughput of the path so far. It is used 
-	 * internally for path splitting and Russian Roulette decisions. It is 
-	 * *NOT* used to rescale the returned Li. */
-	Spectrum throughput;
+    /** 
+     * \brief Global throughput of the path so far.
+     *
+     * In case the integrator gets called as a sub-integrator, then this 
+     * should be set to the throughput of the path so far. It is used 
+     * internally for path splitting and Russian Roulette decisions. It is 
+     * *NOT* used to rescale the returned Li. */
+    Spectrum throughput;
 
-	/// Surface interaction data structure (*)
-	Intersection its;
+    /// Surface interaction data structure (*)
+    Intersection its;
 
-	/// Opacity value of the associated pixel (*)
-	Float alpha;
+    /// Opacity value of the associated pixel (*)
+    Float alpha;
 
-	/**
-	 * Ray distance to the first surface interaction
-	 * (if requested by the query type EDistance) (*)
-	 */
-	Float dist;
+    /**
+     * Ray distance to the first surface interaction
+     * (if requested by the query type EDistance) (*)
+     */
+    Float dist;
 
-	/**
-	 * Internal flag, which can be used to pass additional information
-	 * amonst recursive calls inside an integrator. The use
-	 * is dependent on the particular integrator implementation. (*)
-	 */
-	int extra;
+    /**
+     * Internal flag, which can be used to pass additional information
+     * amonst recursive calls inside an integrator. The use
+     * is dependent on the particular integrator implementation. (*)
+     */
+    int extra;
 };
 
 /** \brief Abstract base class, which describes integrators
@@ -343,137 +343,137 @@ public:
  */
 class MTS_EXPORT_RENDER SamplingIntegrator : public Integrator {
 public:
-	/**
-	 * \brief Sample the incident radiance along a ray. Also requires
-	 * a radiance query record, which makes this request more precise.
-	 */
-	virtual Spectrum Li(const RayDifferential &ray,
-		RadianceQueryRecord &rRec) const = 0;
+    /**
+     * \brief Sample the incident radiance along a ray. Also requires
+     * a radiance query record, which makes this request more precise.
+     */
+    virtual Spectrum Li(const RayDifferential &ray,
+        RadianceQueryRecord &rRec) const = 0;
 
 
-	/** 
-	 * \brief Generate a sample of the irradiance at a given surface point.
-	 *
-	 * This implementation samples either the direct irradiance or the 
-	 * indirect irradiance over a cosine weighted hemisphere, based on the 
-	 * probability \c indirectProb. The sampled incoming direction is 
-	 * stored in \c d. */
-	Spectrum Esample(const Scene *scene, const Intersection &its,
-			const Medium *medium, Vector &d, Sampler *sampler, Float 
-			indirectProb, int depth = 0) const;
+    /** 
+     * \brief Generate a sample of the irradiance at a given surface point.
+     *
+     * This implementation samples either the direct irradiance or the 
+     * indirect irradiance over a cosine weighted hemisphere, based on the 
+     * probability \c indirectProb. The sampled incoming direction is 
+     * stored in \c d. */
+    Spectrum Esample(const Scene *scene, const Intersection &its,
+            const Medium *medium, Vector &d, Sampler *sampler, Float 
+            indirectProb, int depth = 0) const;
 
-	/**
-	 * \brief Estimate the irradiance at a given surface point
-	 *
-	 * The default implementation simply samples the hemisphere using
-	 * cosine-weighted sampling and a configurable number of rays.
-	 * An integrator such as irradiance caching will provide something
-	 * smarter.
-	 *
-	 * \param scene
-	 *     Const pointer to the underlying scene
-	 * \param its
-	 *     Describes the surface location where the irradiance is to be computed
-	 * \param medium
-	 *     Const pointer to the medium that encloses the ray
-	 *     <tt>(its.p, its.shFrame.n)</tt>. A value of \c NULL corresponds
-	 *     to vacuum.
-	 * \param sampler
-	 *     A pointer to a sample generator
-	 * \param nSamples
-	 *     How many samples should be taken
-	 * \param includeIndirect
-	 *     Include indirect illumination in the estimate?
-	 */
-	virtual Spectrum E(const Scene *scene, const Intersection &its,
-		const Medium *medium, Sampler *sampler, int nSamples,
-		bool includeIndirect) const;
+    /**
+     * \brief Estimate the irradiance at a given surface point
+     *
+     * The default implementation simply samples the hemisphere using
+     * cosine-weighted sampling and a configurable number of rays.
+     * An integrator such as irradiance caching will provide something
+     * smarter.
+     *
+     * \param scene
+     *     Const pointer to the underlying scene
+     * \param its
+     *     Describes the surface location where the irradiance is to be computed
+     * \param medium
+     *     Const pointer to the medium that encloses the ray
+     *     <tt>(its.p, its.shFrame.n)</tt>. A value of \c NULL corresponds
+     *     to vacuum.
+     * \param sampler
+     *     A pointer to a sample generator
+     * \param nSamples
+     *     How many samples should be taken
+     * \param includeIndirect
+     *     Include indirect illumination in the estimate?
+     */
+    virtual Spectrum E(const Scene *scene, const Intersection &its,
+        const Medium *medium, Sampler *sampler, int nSamples,
+        bool includeIndirect) const;
 
-	/**
-	 * \brief Perform the main rendering task
-	 *
-	 * The work is automatically parallelized to multiple cores and
-	 * remote machines. The default implementation uniformly generates
-	 * samples on the sensor aperture and image plane as specified by
-	 * the used sampler. The average of the estimated radiance along the
-	 * associated rays in a pixel region is then taken as an approximation
-	 * of that pixel's radiance value. For adaptive strategies, have a look at
-	 * the \c adaptive plugin, which is an extension of this class.
-	 */
-	bool render(Scene *scene, RenderQueue *queue, const RenderJob *job,
-		int sceneResID, int sensorResID, int samplerResID);
+    /**
+     * \brief Perform the main rendering task
+     *
+     * The work is automatically parallelized to multiple cores and
+     * remote machines. The default implementation uniformly generates
+     * samples on the sensor aperture and image plane as specified by
+     * the used sampler. The average of the estimated radiance along the
+     * associated rays in a pixel region is then taken as an approximation
+     * of that pixel's radiance value. For adaptive strategies, have a look at
+     * the \c adaptive plugin, which is an extension of this class.
+     */
+    bool render(Scene *scene, RenderQueue *queue, const RenderJob *job,
+        int sceneResID, int sensorResID, int samplerResID);
 
-	/**
-	 * This can be called asynchronously to cancel a running render job.
-	 * In this case, <tt>render()</tt> will quit with a return value of
-	 * <tt>false</tt>.
-	 */
-	void cancel();
+    /**
+     * This can be called asynchronously to cancel a running render job.
+     * In this case, <tt>render()</tt> will quit with a return value of
+     * <tt>false</tt>.
+     */
+    void cancel();
 
-	/**
-	 * This method does the main work of <tt>render()</tt> and
-	 * runs in parallel for a series of image blocks, which are
-	 * being processed at a time.
-	 *
-	 * \param scene
-	 *    Pointer to the underlying scene
-	 * \param sensor
-	 *    Pointer to the sensor used to render the image
-	 * \param sampler
-	 *    Pointer to the sampler used to render the image
-	 * \param block
-	 *    Pointer to the image block to be filled
-	 * \param points
-	 *    Specifies the traversal order, i.e. using a space-filling
-	 *    curve. To limit the size of the array, it is currently assumed
-	 *    that the block size is smaller than 256x256
-	 * \param stop
-	 *    Reference to a boolean, which will be set to true when
-	 *    the user has requested that the program be stopped
-	 */
-	virtual void renderBlock(const Scene *scene, const Sensor *sensor,
-		Sampler *sampler, ImageBlock *block, const bool &stop,
-		const std::vector< TPoint2<uint8_t> > &points) const;
+    /**
+     * This method does the main work of <tt>render()</tt> and
+     * runs in parallel for a series of image blocks, which are
+     * being processed at a time.
+     *
+     * \param scene
+     *    Pointer to the underlying scene
+     * \param sensor
+     *    Pointer to the sensor used to render the image
+     * \param sampler
+     *    Pointer to the sampler used to render the image
+     * \param block
+     *    Pointer to the image block to be filled
+     * \param points
+     *    Specifies the traversal order, i.e. using a space-filling
+     *    curve. To limit the size of the array, it is currently assumed
+     *    that the block size is smaller than 256x256
+     * \param stop
+     *    Reference to a boolean, which will be set to true when
+     *    the user has requested that the program be stopped
+     */
+    virtual void renderBlock(const Scene *scene, const Sensor *sensor,
+        Sampler *sampler, ImageBlock *block, const bool &stop,
+        const std::vector< TPoint2<uint8_t> > &points) const;
 
-	/**
-	 * <tt>NetworkedObject</tt> implementation:
-	 * When a parallel rendering process starts, the integrator is
-	 * given the opportunity to attach globally shared resources to
-	 * the process. This is useful for distributing heavy data
-	 * structures (e.g. photon maps) without having to re-transmit
-	 * them every time an image is rendered.
-	 */
-	virtual void bindUsedResources(ParallelProcess *proc) const;
+    /**
+     * <tt>NetworkedObject</tt> implementation:
+     * When a parallel rendering process starts, the integrator is
+     * given the opportunity to attach globally shared resources to
+     * the process. This is useful for distributing heavy data
+     * structures (e.g. photon maps) without having to re-transmit
+     * them every time an image is rendered.
+     */
+    virtual void bindUsedResources(ParallelProcess *proc) const;
 
-	/**
-	 * <tt>NetworkedObject</tt> implementation:
-	 * Called once just before this integrator instance is asked
-	 * to process an image block. In comparison to <tt>preprocess()</tt>
-	 * this will be executed on _every_ instance of this class, which is
-	 * useful for connecting to globally shared resources (photon maps,
-	 * irradiance caches, ..) after having been unserialized on a
-	 * remote machine. A list of resources bound to the associated
-	 * parallel process is given as a parameter.
-	 */
-	virtual void wakeup(ConfigurableObject *parent,
-		std::map<std::string, SerializableObject *> &params);
+    /**
+     * <tt>NetworkedObject</tt> implementation:
+     * Called once just before this integrator instance is asked
+     * to process an image block. In comparison to <tt>preprocess()</tt>
+     * this will be executed on _every_ instance of this class, which is
+     * useful for connecting to globally shared resources (photon maps,
+     * irradiance caches, ..) after having been unserialized on a
+     * remote machine. A list of resources bound to the associated
+     * parallel process is given as a parameter.
+     */
+    virtual void wakeup(ConfigurableObject *parent,
+        std::map<std::string, SerializableObject *> &params);
 
-	/// Serialize this integrator to a binary data stream
-	void serialize(Stream *stream, InstanceManager *manager) const;
+    /// Serialize this integrator to a binary data stream
+    void serialize(Stream *stream, InstanceManager *manager) const;
 
-	MTS_DECLARE_CLASS()
+    MTS_DECLARE_CLASS()
 protected:
-	/// Create a integrator
-	SamplingIntegrator(const Properties &props);
+    /// Create a integrator
+    SamplingIntegrator(const Properties &props);
 
-	/// Unserialize an integrator
-	SamplingIntegrator(Stream *stream, InstanceManager *manager);
+    /// Unserialize an integrator
+    SamplingIntegrator(Stream *stream, InstanceManager *manager);
 
-	/// Virtual destructor
-	virtual ~SamplingIntegrator() { }
+    /// Virtual destructor
+    virtual ~SamplingIntegrator() { }
 protected:
-	/// Used to temporarily cache a parallel process while it is in operation
-	ref<ParallelProcess> m_process;
+    /// Used to temporarily cache a parallel process while it is in operation
+    ref<ParallelProcess> m_process;
 };
 
 
@@ -484,212 +484,212 @@ protected:
  */
 struct MTS_EXPORT_RENDER RussianRoulette {
 public:
-	/** Enable russian roulette for path longer that this depth. */
-	int startDepth;
+    /** Enable russian roulette for path longer that this depth. */
+    int startDepth;
 
-	/**
-	 * Start forcing path termination with the less-than-unity
-	 * continuation probability given by \c FORCED_MAX_PROB for path longer
-	 * than this depth. If \c forcedDepth is negative, then Russian
-	 * roulette is disabled. */
-	int forcedDepth;
+    /**
+     * Start forcing path termination with the less-than-unity
+     * continuation probability given by \c FORCED_MAX_PROB for path longer
+     * than this depth. If \c forcedDepth is negative, then Russian
+     * roulette is disabled. */
+    int forcedDepth;
 
-	/**
-	 * The maximum number of times that a path can be split.
-	 */
-	int maxSplits;
+    /**
+     * The maximum number of times that a path can be split.
+     */
+    int maxSplits;
 
-	/**
-	 * Russian roulette will try to keep the path throughput at or above
-	 * this value. */
-	Float targetLowerThroughput;
+    /**
+     * Russian roulette will try to keep the path throughput at or above
+     * this value. */
+    Float targetLowerThroughput;
 
-	/**
-	 * Path splitting will try to keep the path throughput at or below
-	 * this value. */
-	Float targetUpperThroughput;
+    /**
+     * Path splitting will try to keep the path throughput at or below
+     * this value. */
+    Float targetUpperThroughput;
 
-	/**
-	 * When forcing termination for path longer than \c forcedDepth, use
-	 * this probability as an upper bound of the continuation probability. */
-	static const Float FORCED_MAX_PROB;
+    /**
+     * When forcing termination for path longer than \c forcedDepth, use
+     * this probability as an upper bound of the continuation probability. */
+    static const Float FORCED_MAX_PROB;
 
-	/// Default constructor, disables Russian roulette.
-	inline RussianRoulette() {
-		startDepth = -1;
-	}
-	/// Construct with the given properties.
-	inline RussianRoulette(const Properties &props) {
-		startDepth = props.getInteger("rrDepth", 5);
-		forcedDepth = props.getInteger("rrForcedDepth", -1);
-		maxSplits = props.getInteger("maxSplits", 1000);
-		targetLowerThroughput = props.getFloat("rrTargetLowerThroughput", 0.3f);
-		targetUpperThroughput = props.getFloat("rrTargetUpperThroughput", 3.0f);
+    /// Default constructor, disables Russian roulette.
+    inline RussianRoulette() {
+        startDepth = -1;
+    }
+    /// Construct with the given properties.
+    inline RussianRoulette(const Properties &props) {
+        startDepth = props.getInteger("rrDepth", 5);
+        forcedDepth = props.getInteger("rrForcedDepth", -1);
+        maxSplits = props.getInteger("maxSplits", 1000);
+        targetLowerThroughput = props.getFloat("rrTargetLowerThroughput", 0.3f);
+        targetUpperThroughput = props.getFloat("rrTargetUpperThroughput", 3.0f);
 
-		if (targetLowerThroughput <= 0 || targetUpperThroughput <= 0) {
-			SLog(EError, "Lower and upper target throughputs should be "
-					"larger than zero");
-		}
-		if (targetLowerThroughput > targetUpperThroughput) {
-			SLog(EError, "Lower target throughput should be lower than the "
-					"upper taraget throughput");
-		}
+        if (targetLowerThroughput <= 0 || targetUpperThroughput <= 0) {
+            SLog(EError, "Lower and upper target throughputs should be "
+                    "larger than zero");
+        }
+        if (targetLowerThroughput > targetUpperThroughput) {
+            SLog(EError, "Lower target throughput should be lower than the "
+                    "upper taraget throughput");
+        }
 
-		SLog(EDebug, "Loaded RussianRoulette with rrDepth %d, "
-				"rrForcedDepth %d, maxSplits %d, rrTargetLowerThroughput %f, "
-				"rrTargetUpperThroughput %f",
-				startDepth, forcedDepth, maxSplits, targetLowerThroughput, 
-				targetUpperThroughput);
-	}
-	/// Unserialize from a stream.
-	inline RussianRoulette(Stream *stream) {
-		startDepth = stream->readInt();
-		forcedDepth = stream->readInt();
-		maxSplits = stream->readInt();
-		targetLowerThroughput = stream->readFloat();
-		targetUpperThroughput = stream->readFloat();
-	}
-	/// Serialize to a stream.
-	inline void serialize(Stream *stream) const {
-		stream->writeInt(startDepth);
-		stream->writeInt(forcedDepth);
-		stream->writeInt(maxSplits);
-		stream->writeFloat(targetLowerThroughput);
-		stream->writeFloat(targetUpperThroughput);
-	}
+        SLog(EDebug, "Loaded RussianRoulette with rrDepth %d, "
+                "rrForcedDepth %d, maxSplits %d, rrTargetLowerThroughput %f, "
+                "rrTargetUpperThroughput %f",
+                startDepth, forcedDepth, maxSplits, targetLowerThroughput, 
+                targetUpperThroughput);
+    }
+    /// Unserialize from a stream.
+    inline RussianRoulette(Stream *stream) {
+        startDepth = stream->readInt();
+        forcedDepth = stream->readInt();
+        maxSplits = stream->readInt();
+        targetLowerThroughput = stream->readFloat();
+        targetUpperThroughput = stream->readFloat();
+    }
+    /// Serialize to a stream.
+    inline void serialize(Stream *stream) const {
+        stream->writeInt(startDepth);
+        stream->writeInt(forcedDepth);
+        stream->writeInt(maxSplits);
+        stream->writeFloat(targetLowerThroughput);
+        stream->writeFloat(targetUpperThroughput);
+    }
 
-	/// Is Russian roulette enabled?
-	inline bool rouletteEnabled() const {
-		return startDepth >= 0;
-	}
+    /// Is Russian roulette enabled?
+    inline bool rouletteEnabled() const {
+        return startDepth >= 0;
+    }
 
-	/// Is path splitting roulette enabled?
-	inline bool splittingEnabled() const {
-		return maxSplits > 0;
-	}
+    /// Is path splitting roulette enabled?
+    inline bool splittingEnabled() const {
+        return maxSplits > 0;
+    }
 
-	/**
-	 * Performs a Russian Roulette path termination decision.
-	 *
-	 * Tries to keep path weights greater than or equal to 
-	 * targetLowerThroughput, while accounting for the solid angle 
-	 * compression at refractive index boundaries.
-	 * For depths greater than forcedDepth (if positive): stop with at
-	 * least some probability to avoid getting stuck (e.g. due to total
-	 * internal reflection).
-	 *
-	 * \param depth
-	 *    The current path depth.
-	 * \param throughput
-	 *    The current path throughput (corrected for previous Russian
-	 *    roulette steps along the path if applicable).
-	 * \param eta
-	 *    The ratio of indices of refraction accumulated along the path.
-	 * \return
-	 *    Returns 0 if the tracing should be stopped and returns the
-	 *    continuation probability otherwise. This probability can be used
-	 *    to adjust the path troughput to remain unbiased.
-	 */
-	inline Float roulette(int depth, const Spectrum &throughput,
-			Float eta, Sampler *sampler) const {
-		if (!rouletteEnabled() || depth < startDepth)
-			return 1.0f;
+    /**
+     * Performs a Russian Roulette path termination decision.
+     *
+     * Tries to keep path weights greater than or equal to 
+     * targetLowerThroughput, while accounting for the solid angle 
+     * compression at refractive index boundaries.
+     * For depths greater than forcedDepth (if positive): stop with at
+     * least some probability to avoid getting stuck (e.g. due to total
+     * internal reflection).
+     *
+     * \param depth
+     *    The current path depth.
+     * \param throughput
+     *    The current path throughput (corrected for previous Russian
+     *    roulette steps along the path if applicable).
+     * \param eta
+     *    The ratio of indices of refraction accumulated along the path.
+     * \return
+     *    Returns 0 if the tracing should be stopped and returns the
+     *    continuation probability otherwise. This probability can be used
+     *    to adjust the path troughput to remain unbiased.
+     */
+    inline Float roulette(int depth, const Spectrum &throughput,
+            Float eta, Sampler *sampler) const {
+        if (!rouletteEnabled() || depth < startDepth)
+            return 1.0f;
 
-		return roulette(throughput, eta, sampler,
-				forcedDepth > 0 && depth >= forcedDepth);
-	}
+        return roulette(throughput, eta, sampler,
+                forcedDepth > 0 && depth >= forcedDepth);
+    }
 
-	/**
-	 * \brief Performs a Russian Roulette path termination decision.
-	 *
-	 * This function is similar to the one with the additional path depth
-	 * parameter, with the difference that this function will always
-	 * evaluate the termination criterion, whereas the aforementioned
-	 * function only does this for paths that are longer than \c
-	 * startDepth and the \c forced parameter explicitly switches between
-	 * forced and unforced termination.
-	 *
-	 * \param throughput
-	 *    The current path throughput (corrected for previous Russian
-	 *    roulette steps along the path if applicable).
-	 * \param eta
-	 *    The ratio of indices of refraction accumulated along the path.
-	 * \param forced
-	 *    If true: force path termination with a nonzero probability,
-	 *    irrespective of the throughput.
-	 * \return
-	 *    Returns 0 if the tracing should be stopped and returns the
-	 *    continuation probability otherwise. This probability can be used
-	 *    to adjust the path troughput to remain unbiased.
-	 */
-	inline Float roulette(const Spectrum &throughput, Float eta,
-			Sampler *sampler, bool forced) const {
-		if (!rouletteEnabled())
-			return 1.0f;
+    /**
+     * \brief Performs a Russian Roulette path termination decision.
+     *
+     * This function is similar to the one with the additional path depth
+     * parameter, with the difference that this function will always
+     * evaluate the termination criterion, whereas the aforementioned
+     * function only does this for paths that are longer than \c
+     * startDepth and the \c forced parameter explicitly switches between
+     * forced and unforced termination.
+     *
+     * \param throughput
+     *    The current path throughput (corrected for previous Russian
+     *    roulette steps along the path if applicable).
+     * \param eta
+     *    The ratio of indices of refraction accumulated along the path.
+     * \param forced
+     *    If true: force path termination with a nonzero probability,
+     *    irrespective of the throughput.
+     * \return
+     *    Returns 0 if the tracing should be stopped and returns the
+     *    continuation probability otherwise. This probability can be used
+     *    to adjust the path troughput to remain unbiased.
+     */
+    inline Float roulette(const Spectrum &throughput, Float eta,
+            Sampler *sampler, bool forced) const {
+        if (!rouletteEnabled())
+            return 1.0f;
 
-		Float qMax = forced ? FORCED_MAX_PROB : 1.0f;
-		Float q = std::min(qMax,
-				throughput.max() * eta*eta / targetLowerThroughput);
-		if (q < 1.0f && sampler->next1D() >= q)
-				return 0.0f;
-		return q;
-	}
+        Float qMax = forced ? FORCED_MAX_PROB : 1.0f;
+        Float q = std::min(qMax,
+                throughput.max() * eta*eta / targetLowerThroughput);
+        if (q < 1.0f && sampler->next1D() >= q)
+                return 0.0f;
+        return q;
+    }
 
-	/**
-	 * Performs a path splitting decision.
-	 *
-	 * Tries to keep path weights less than or equal to 
-	 * targetUpperThroughput, while accounting for the solid angle 
-	 * compression at refractive index boundaries. For depths greater than 
-	 * forcedDepth (if positive): stop with at least some probability to 
-	 * avoid getting stuck (e.g. due to total internal reflection).
-	 *
-	 * \param splits
-	 *    Use this to provide the total number of splits that have happened 
-	 *    on the current path so far. This gets incremented with the number 
-	 *    of splits that should be performed (i.e. the return value).
-	 * \param throughput
-	 *    The current path throughput (corrected for previous Russian
-	 *    roulette steps along the path if applicable).
-	 * \param eta
-	 *    The ratio of indices of refraction accumulated along the path.
-	 * \return
-	 *    The number of splits to perform (0 means continue with the 
-	 *    current single path, 1 means split once and continue with two 
-	 *    paths, etc).
-	 */
-	inline int split(int &splits, const Spectrum &throughput,
-			Float eta, Sampler *sampler) const {
-		if (!splittingEnabled())
-			return 0;
+    /**
+     * Performs a path splitting decision.
+     *
+     * Tries to keep path weights less than or equal to 
+     * targetUpperThroughput, while accounting for the solid angle 
+     * compression at refractive index boundaries. For depths greater than 
+     * forcedDepth (if positive): stop with at least some probability to 
+     * avoid getting stuck (e.g. due to total internal reflection).
+     *
+     * \param splits
+     *    Use this to provide the total number of splits that have happened 
+     *    on the current path so far. This gets incremented with the number 
+     *    of splits that should be performed (i.e. the return value).
+     * \param throughput
+     *    The current path throughput (corrected for previous Russian
+     *    roulette steps along the path if applicable).
+     * \param eta
+     *    The ratio of indices of refraction accumulated along the path.
+     * \return
+     *    The number of splits to perform (0 means continue with the 
+     *    current single path, 1 means split once and continue with two 
+     *    paths, etc).
+     */
+    inline int split(int &splits, const Spectrum &throughput,
+            Float eta, Sampler *sampler) const {
+        if (!splittingEnabled())
+            return 0;
 
-		SAssert(throughput.isFinite());
+        SAssert(throughput.isFinite());
 
-		int numSplitsNow = 0;
-		Float peak = throughput.max() * eta * eta;
-		if (peak > targetUpperThroughput) {
-			Float numIdealSplitsFlt = 0.5f + peak / targetUpperThroughput;
-			/* /2 to leave some for a possible next recursion step: */
-			int maxRemainingSplits = (maxSplits - splits) / 2;
-			SAssert(maxRemainingSplits >= 0);
-			int numIdealSplits = std::min((Float)INT_MAX, numIdealSplitsFlt);
-			numSplitsNow = std::min(numIdealSplits, maxRemainingSplits);
-			splits += numSplitsNow;
-			SAssert(splits <= maxSplits);
-		}
-		return numSplitsNow;
-	}
+        int numSplitsNow = 0;
+        Float peak = throughput.max() * eta * eta;
+        if (peak > targetUpperThroughput) {
+            Float numIdealSplitsFlt = 0.5f + peak / targetUpperThroughput;
+            /* /2 to leave some for a possible next recursion step: */
+            int maxRemainingSplits = (maxSplits - splits) / 2;
+            SAssert(maxRemainingSplits >= 0);
+            int numIdealSplits = std::min((Float)INT_MAX, numIdealSplitsFlt);
+            numSplitsNow = std::min(numIdealSplits, maxRemainingSplits);
+            splits += numSplitsNow;
+            SAssert(splits <= maxSplits);
+        }
+        return numSplitsNow;
+    }
 
-	/// Return a string representation
-	inline std::string toString() const {
-		std::ostringstream oss;
-		oss << "RR[start " << startDepth <<
-		       ", forced " << forcedDepth <<
-		       ", maxSplits " << maxSplits <<
-		       ", targetLo " << targetLowerThroughput <<
-		       ", targetHi " << targetUpperThroughput << "]";
-		return oss.str();
-	}
+    /// Return a string representation
+    inline std::string toString() const {
+        std::ostringstream oss;
+        oss << "RR[start " << startDepth <<
+               ", forced " << forcedDepth <<
+               ", maxSplits " << maxSplits <<
+               ", targetLo " << targetLowerThroughput <<
+               ", targetHi " << targetUpperThroughput << "]";
+        return oss.str();
+    }
 };
 
 
@@ -701,27 +701,27 @@ public:
  */
 class MTS_EXPORT_RENDER MonteCarloIntegrator : public SamplingIntegrator {
 public:
-	/// Serialize this integrator to a binary data stream
-	void serialize(Stream *stream, InstanceManager *manager) const;
+    /// Serialize this integrator to a binary data stream
+    void serialize(Stream *stream, InstanceManager *manager) const;
 
-	const RussianRoulette &getRR() const { return m_rr; } 
-	int getMaxDepth() const { return m_maxDepth; }
-	bool strictNormals() const { return m_strictNormals; }
-	bool hideEmitters() const { return m_hideEmitters; }
+    const RussianRoulette &getRR() const { return m_rr; } 
+    int getMaxDepth() const { return m_maxDepth; }
+    bool strictNormals() const { return m_strictNormals; }
+    bool hideEmitters() const { return m_hideEmitters; }
 
-	MTS_DECLARE_CLASS()
+    MTS_DECLARE_CLASS()
 protected:
-	/// Create a integrator
-	MonteCarloIntegrator(const Properties &props);
-	/// Unserialize an integrator
-	MonteCarloIntegrator(Stream *stream, InstanceManager *manager);
-	/// Virtual destructor
-	virtual ~MonteCarloIntegrator() { }
+    /// Create a integrator
+    MonteCarloIntegrator(const Properties &props);
+    /// Unserialize an integrator
+    MonteCarloIntegrator(Stream *stream, InstanceManager *manager);
+    /// Virtual destructor
+    virtual ~MonteCarloIntegrator() { }
 protected:
     int m_maxDepth;
-	RussianRoulette m_rr;
-	bool m_strictNormals;
-	bool m_hideEmitters;
+    RussianRoulette m_rr;
+    bool m_strictNormals;
+    bool m_hideEmitters;
 };
 
 MTS_NAMESPACE_END
