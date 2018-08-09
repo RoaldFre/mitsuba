@@ -1,0 +1,54 @@
+This repository implements the Forward Scattering Dipole model within the 
+Mitsuba renderer. More information about the model can be found in the 
+SIGGRAPH 2017 paper 'A Forward Scattering Dipole Model from a Functional 
+Integral Approximation'
+Project page: http://graphics.cs.kuleuven.be/publications/FD17FSDM/
+
+
+DEPENDENCIES
+============
+
+All the usual dependencies of Mitsuba with an additional dependency on GSL 
+(the Gnu Scientific Library).
+
+
+HOW TO BUILD
+============
+
+Get the repository:
+
+    $ hg clone https://bitbucket.org/roaldfre/mitsuba
+
+The forward scattering dipole code lives in the fwddip branch.
+
+    $ hg update fwddip
+
+Select a build configuration (currently, only the gcc profile for double 
+precision is fully supported)
+    
+    $ cp build/config-linux-gcc-double.py config.py
+
+Alternatively, if you want spectral rendering (e.g. to render a realistic skin 
+material), you can choose a spectral build profile:
+
+    $ cp build/config-linux-gcc-spectral-double.py config.py
+
+Once you have chosen a build profile, start the build process (e.g. assuming 
+four cores)
+
+    $ scons -j 4
+
+Add the proper directories to the `$PATH` (e.g. assuming sh/bash shell)
+
+    $ . setpath.sh
+
+You should now be able to run the 'mitsuba' and 'mtsgui' commands (and several 
+others).
+
+
+USING THE FORWARD SCATTERING DIPOLE MODEL
+=========================================
+
+You can find documented example scenes on the project page: 
+http://graphics.cs.kuleuven.be/publications/FD17FSDM/
+

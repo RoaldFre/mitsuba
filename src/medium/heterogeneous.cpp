@@ -587,7 +587,7 @@ public:
 	}
 
 	bool sampleDistance(const Ray &ray, MediumSamplingRecord &mRec,
-			Sampler *sampler) const {
+			Sampler *sampler, const Spectrum *throughput) const {
 		Float integratedDensity, densityAtMinT, densityAtT;
 		bool success = false;
 
@@ -662,7 +662,8 @@ public:
 		return success && mRec.pdfSuccess > 0;
 	}
 
-	void eval(const Ray &ray, MediumSamplingRecord &mRec) const {
+	void eval(const Ray &ray, MediumSamplingRecord &mRec,
+			const Spectrum *throughput) const {
 		if (m_method == ESimpsonQuadrature) {
 			Float expVal = math::fastexp(-integrateDensity(ray));
 			Float mintDensity = lookupDensity(ray(ray.mint), ray.d) * m_scale;

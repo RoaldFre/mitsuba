@@ -38,7 +38,8 @@ static StatsCounter avgPathLength("Volumetric path tracer", "Average path length
  *	   }
  *	   \parameter{rrForcedDepth}{\Integer}{Specifies the minimum path depth, after
  *	      which the implementation will force the ``russian roulette'' path
- *	      termination probabilities to be less than unity. \default{\code{100}}
+ *	      termination probabilities to be less than unity. A value of \code{-1}
+ *	      corresponds to $\infty$.\default{\code{-1}}
  *	   }
  *	   \parameter{rrTargetThroughput}{\Float}{The ``russian roulette'' path
  *	      termination criterion will try to keep the path weights at or
@@ -89,12 +90,34 @@ static StatsCounter avgPathLength("Volumetric path tracer", "Average path length
  * }
  */
 class SimpleVolumetricPathTracer : public MonteCarloIntegrator {
+protected:
+	bool m_onlySingleScatter;
+	bool m_noSingleScatter;
+	bool m_explicitSubsurfBoundary;
 public:
-	SimpleVolumetricPathTracer(const Properties &props) : MonteCarloIntegrator(props) { }
+	SimpleVolumetricPathTracer(const Properties &props) : MonteCarloIntegrator(props) {
+		m_onlySingleScatter = props.getBoolean("onlySingleScatter", false);
+		m_noSingleScatter = props.getBoolean("noSingleScatter", false);
+		m_explicitSubsurfBoundary = props.getBoolean("explicitSubsurfBoundary", true);
+		if (m_onlySingleScatter && m_noSingleScatter) {
+			Log(EError, "Conflicting options: onlySingleScatter and noSingleScatter are both active!");
+		}
+	}
 
 	/// Unserialize from a binary data stream
 	SimpleVolumetricPathTracer(Stream *stream, InstanceManager *manager)
-	 : MonteCarloIntegrator(stream, manager) { }
+	 : MonteCarloIntegrator(stream, manager) {
+		m_onlySingleScatter = stream->readBool();
+		m_noSingleScatter = stream->readBool();
+		m_explicitSubsurfBoundary = stream->readBool();
+	 }
+
+	void serialize(Stream *stream, InstanceManager *manager) const {
+		MonteCarloIntegrator::serialize(stream, manager);
+		stream->writeBool(m_onlySingleScatter);
+		stream->writeBool(m_noSingleScatter);
+		stream->writeBool(m_explicitSubsurfBoundary);
+	}
 
 	Spectrum Li(const RayDifferential &r, RadianceQueryRecord &rRec) const {
 		/* Some aliases and local variables */
@@ -103,7 +126,9 @@ public:
 		MediumSamplingRecord mRec;
 		RayDifferential ray(r);
 		Spectrum Li(0.0f);
-		bool nullChain = true, scattered = false;
+		bool nullChain = true;
+		bool scattered = rRec.depth != 1;
+		int mediumInteractionChain = 0;
 		Float eta = 1.0f;
 
 		/* Perform the first ray intersection (or ignore if the
@@ -124,7 +149,11 @@ public:
 			/* ==================================================================== */
 			/*                 Radiative Transfer Equation sampling                 */
 			/* ==================================================================== */
-			if (rRec.medium && rRec.medium->sampleDistance(Ray(ray, 0, its.t), mRec, rRec.sampler)) {
+			if (rRec.medium && rRec.medium->sampleDistance(Ray(ray, 0, its.t), mRec,
+					rRec.sampler, &throughput)) {
+				if (m_onlySingleScatter && mediumInteractionChain >= 1)
+					break;
+				mediumInteractionChain++;
 				/* Sample the integral
 				   \int_x^y tau(x, x') [ \sigma_s \int_{S^2} \rho(\omega,\omega') L(x,\omega') d\omega' ] dx'
 				*/
@@ -137,7 +166,9 @@ public:
 				/* ==================================================================== */
 
 				/* Estimate the single scattering component if this is requested */
-				if (rRec.type & RadianceQueryRecord::EDirectMediumRadiance) {
+				if (rRec.type & RadianceQueryRecord::EDirectMediumRadiance
+						&& !(m_onlySingleScatter && mediumInteractionChain != 1)
+						&& !(m_noSingleScatter && mediumInteractionChain == 1)) {
 					DirectSamplingRecord dRec(mRec.p, mRec.time);
 					int maxInteractions = m_maxDepth - rRec.depth - 1;
 
@@ -172,6 +203,12 @@ public:
 				nullChain = false;
 				scattered = true;
 			} else {
+				if (m_onlySingleScatter && mediumInteractionChain != 0 && mediumInteractionChain != 1)
+					break;
+				if (m_noSingleScatter && mediumInteractionChain == 1)
+					break;
+				mediumInteractionChain = 0;
+
 				/* Sample
 					tau(x, y) * (Surface integral). This happens with probability mRec.pdfFailure
 					Account for this and multiply by the proper per-color-channel transmittance.
@@ -199,8 +236,9 @@ public:
 					Li += throughput * its.Le(-ray.d);
 
 				/* Include radiance from a subsurface integrator if requested */
-				if (its.hasSubsurface() && (rRec.type & RadianceQueryRecord::ESubsurfaceRadiance))
-					Li += throughput * its.LoSub(scene, rRec.sampler, -ray.d, rRec.depth);
+				if (its.hasSubsurface() && (!m_explicitSubsurfBoundary || !its.hasLiSubsurface())
+						&& (rRec.type & RadianceQueryRecord::ESubsurfaceRadiance))
+					Li += throughput * its.LoSub(scene, rRec.sampler, -ray.d, throughput, rRec.depth);
 
 				/* Prevent light leaks due to the use of shading normals */
 				Float wiDotGeoN = -dot(its.geoFrame.n, ray.d),
@@ -284,6 +322,28 @@ public:
 				if (its.isMediumTransition())
 					rRec.medium = its.getTargetMedium(wo);
 
+				/* If we cross the surface and have a subsurface integrator 
+				 * that can sample Li behind it, then return it if 
+				 * requested or stop if it is not requested.
+				 * Don't check for cosTheta<0 because the subsurface 
+				 * integrator may allow 'incoming' outgoing directions, 
+				 * (e.g. DirectSamplingSubsurface with 
+				 * allowIncomingOutgoingDirections to check boundary 
+				 * conditions) */
+				if (its.hasSubsurface() && its.hasLiSubsurface() && m_explicitSubsurfBoundary) {
+					if (rRec.type & RadianceQueryRecord::ESubsurfaceRadiance)
+						Li += throughput * its.LiSub(scene, rRec.sampler, wo,
+								throughput, rRec.splits, rRec.depth);
+
+					/* If 'outgoing' direction is away from the medium (wo 
+					 * pointing into the medium) -> then we are looking at 
+					 * the medium from the outside, in which case we want 
+					 * the medium to be opaque apart from its explicit Li, 
+					 * so we stop the tracing. */
+					if (Frame::cosTheta(bRec.wo) < 0)
+						break;
+				}
+
 				/* In the next iteration, trace a ray in this direction */
 				ray = Ray(its.p, wo, ray.time);
 				scene->rayIntersect(ray, its);
@@ -299,10 +359,6 @@ public:
 		avgPathLength.incrementBase();
 		avgPathLength += rRec.depth;
 		return Li;
-	}
-
-	void serialize(Stream *stream, InstanceManager *manager) const {
-		MonteCarloIntegrator::serialize(stream, manager);
 	}
 
 	std::string toString() const {

@@ -45,6 +45,11 @@ inline bool Intersection::hasSubsurface() const {
 	return shape->hasSubsurface();
 }
 
+inline bool Intersection::hasLiSubsurface() const {
+	return shape->hasSubsurface() &&
+			shape->getSubsurface()->supportsLi();
+}
+
 inline bool Intersection::isEmitter() const {
 	return shape->isEmitter();
 }
@@ -58,8 +63,15 @@ inline Spectrum Intersection::Le(const Vector &d) const {
 }
 
 inline Spectrum Intersection::LoSub(const Scene *scene,
-		Sampler *sampler, const Vector &d, int depth) const {
-	return shape->getSubsurface()->Lo(scene, sampler, *this, d, depth);
+		Sampler *sampler, const Vector &d, 
+		const Spectrum &throughput, int depth) const {
+	return shape->getSubsurface()->Lo(scene, sampler, *this, d, throughput, depth);
+}
+
+inline Spectrum Intersection::LiSub(const Scene *scene,
+		Sampler *sampler, const Vector &d, 
+		const Spectrum &throughput, int &splits, int depth) const {
+	return shape->getSubsurface()->Li(scene, sampler, *this, d, throughput, splits, depth);
 }
 
 inline const BSDF *Intersection::getBSDF() const {
@@ -114,31 +126,36 @@ inline const PhaseFunction *MediumSamplingRecord::getPhaseFunction() const {
 	return medium->getPhaseFunction();
 }
 
+inline void RadianceQueryRecord::setIntersection(const Intersection &its) {
+	if (type & EOpacity) {
+		Ray ray(its.p, its.toWorld(-its.wi), its.time);
+		int unused = INT_MAX;
+
+		if (its.isValid()) {
+			if (EXPECT_TAKEN(!its.isMediumTransition()))
+				alpha = 1.0f;
+			else
+				alpha = 1-scene->evalTransmittance(its.p, true,
+					ray(scene->getBSphere().radius*2), false,
+					ray.time, its.getTargetMedium(ray.d), unused).average();
+		} else if (medium) {
+			alpha = 1-scene->evalTransmittance(ray.o, false,
+				ray(scene->getBSphere().radius*2), false,
+				ray.time, medium, unused).average();
+		} else {
+			alpha = 0.0f;
+		}
+	}
+	if (type & EDistance)
+		dist = its.t;
+	type &= ~EIntersection; // unset the intersection bit
+}
+
 inline bool RadianceQueryRecord::rayIntersect(const RayDifferential &ray) {
 	/* Only search for an intersection if this was explicitly requested */
 	if (type & EIntersection) {
 		scene->rayIntersect(ray, its);
-		if (type & EOpacity) {
-			int unused = INT_MAX;
-
-			if (its.isValid()) {
-				if (EXPECT_TAKEN(!its.isMediumTransition()))
-					alpha = 1.0f;
-				else
-					alpha = 1-scene->evalTransmittance(its.p, true,
-						ray(scene->getBSphere().radius*2), false,
-						ray.time, its.getTargetMedium(ray.d), unused).average();
-			} else if (medium) {
-				alpha = 1-scene->evalTransmittance(ray.o, false,
-					ray(scene->getBSphere().radius*2), false,
-					ray.time, medium, unused).average();
-			} else {
-				alpha = 0.0f;
-			}
-		}
-		if (type & EDistance)
-			dist = its.t;
-		type ^= EIntersection; // unset the intersection bit
+		setIntersection(its);
 	}
 	return its.isValid();
 }

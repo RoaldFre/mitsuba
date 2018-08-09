@@ -59,41 +59,62 @@
 #define RCPOVERFLOW_DBL   0x1p-1024
 #endif
 
-#define M_E_FLT           2.71828182845904523536f
-#define M_PI_FLT          3.14159265358979323846f
-#define INV_PI_FLT        0.31830988618379067154f
-#define INV_TWOPI_FLT     0.15915494309189533577f
-#define INV_FOURPI_FLT    0.07957747154594766788f
-#define SQRT_TWO_FLT      1.41421356237309504880f
-#define INV_SQRT_TWO_FLT  0.70710678118654752440f
+#define M_E_FLT                   2.71828182845904523536f
+#define M_PI_FLT                  3.14159265358979323846f
+#define HALF_PI_FLT               1.57079632679489661923f
+#define TWO_PI_FLT                6.28318530717958647692f
+#define INV_PI_FLT                0.31830988618379067154f
+#define INV_TWOPI_FLT             0.15915494309189533577f
+#define INV_FOURPI_FLT            0.07957747154594766788f
+#define SQRT_TWO_FLT              1.41421356237309504880f
+#define INV_SQRT_TWO_FLT          0.70710678118654752440f
+#define INV_SQRT_TWOPI_FLT        0.39894228040143267793f
+#define INV_SQRT_TWOPI_CUBED_FLT  0.06349363593424096979f
+#define LOG_REDUCED_PRECISION_FLT 90.f /* approx ln(1e34) */
 
-#define M_E_DBL           2.71828182845904523536
-#define M_PI_DBL          3.14159265358979323846
-#define INV_PI_DBL        0.31830988618379067154
-#define INV_TWOPI_DBL     0.15915494309189533577
-#define INV_FOURPI_DBL    0.07957747154594766788
-#define SQRT_TWO_DBL      1.41421356237309504880
-#define INV_SQRT_TWO_DBL  0.70710678118654752440
+#define M_E_DBL                   2.71828182845904523536
+#define M_PI_DBL                  3.14159265358979323846
+#define HALF_PI_DBL               1.57079632679489661923
+#define TWO_PI_DBL                6.28318530717958647692
+#define INV_PI_DBL                0.31830988618379067154
+#define INV_TWOPI_DBL             0.15915494309189533577
+#define INV_FOURPI_DBL            0.07957747154594766788
+#define SQRT_TWO_DBL              1.41421356237309504880
+#define INV_SQRT_TWO_DBL          0.70710678118654752440
+#define INV_SQRT_TWOPI_DBL        0.39894228040143267793
+#define INV_SQRT_TWOPI_CUBED_DBL  0.06349363593424096979
+#define LOG_REDUCED_PRECISION_DBL 666. /* approx ln(1e289) */
+
 
 #ifdef SINGLE_PRECISION
-#define M_E               M_E_FLT
-#define M_PI              M_PI_FLT
-#define INV_PI            INV_PI_FLT
-#define INV_TWOPI         INV_TWOPI_FLT
-#define INV_FOURPI        INV_FOURPI_FLT
-#define SQRT_TWO          SQRT_TWO_FLT
-#define INV_SQRT_TWO      INV_SQRT_TWO_FLT
-#define ONE_MINUS_EPS     ONE_MINUS_EPS_FLT
-#define RCPOVERFLOW       RCPOVERFLOW_FLT
+#define M_E                   M_E_FLT
+#define M_PI                  M_PI_FLT
+#define HALF_PI               HALF_PI_FLT
+#define TWO_PI                TWO_PI_FLT
+#define INV_PI                INV_PI_FLT
+#define INV_TWOPI             INV_TWOPI_FLT
+#define INV_FOURPI            INV_FOURPI_FLT
+#define SQRT_TWO              SQRT_TWO_FLT
+#define INV_SQRT_TWO          INV_SQRT_TWO_FLT
+#define INV_SQRT_TWOPI        INV_SQRT_TWOPI_FLT
+#define INV_SQRT_TWOPI_CUBED  INV_SQRT_TWOPI_CUBED_FLT
+#define ONE_MINUS_EPS         ONE_MINUS_EPS_FLT
+#define RCPOVERFLOW           RCPOVERFLOW_FLT
+#define LOG_REDUCED_PRECISION LOG_REDUCED_PRECISION_FLT
 #else
-#define M_E               M_E_DBL
-#define M_PI              M_PI_DBL
-#define INV_PI            INV_PI_DBL
-#define INV_TWOPI         INV_TWOPI_DBL
-#define INV_FOURPI        INV_FOURPI_DBL
-#define SQRT_TWO          SQRT_TWO_DBL
-#define INV_SQRT_TWO      INV_SQRT_TWO_DBL
-#define ONE_MINUS_EPS     ONE_MINUS_EPS_DBL
-#define RCPOVERFLOW       RCPOVERFLOW_DBL
+#define M_E                   M_E_DBL
+#define M_PI                  M_PI_DBL
+#define HALF_PI               HALF_PI_DBL
+#define TWO_PI                TWO_PI_DBL
+#define INV_PI                INV_PI_DBL
+#define INV_TWOPI             INV_TWOPI_DBL
+#define INV_FOURPI            INV_FOURPI_DBL
+#define SQRT_TWO              SQRT_TWO_DBL
+#define INV_SQRT_TWO          INV_SQRT_TWO_DBL
+#define INV_SQRT_TWOPI        INV_SQRT_TWOPI_DBL
+#define INV_SQRT_TWOPI_CUBED  INV_SQRT_TWOPI_CUBED_DBL
+#define ONE_MINUS_EPS         ONE_MINUS_EPS_DBL
+#define RCPOVERFLOW           RCPOVERFLOW_DBL
+#define LOG_REDUCED_PRECISION LOG_REDUCED_PRECISION_DBL
 #endif
 #endif /* __MITSUBA_CORE_CONSTANTS_H */

@@ -40,7 +40,9 @@ PathSampler::PathSampler(ETechnique technique, const Scene *scene,
 		props.setInteger("maxDepth", maxDepth);
 		props.setInteger("rrDepth", rr.startDepth);
 		props.setInteger("rrForcedDepth", rr.forcedDepth);
-		props.setFloat("rrTargetThroughput", rr.targetThroughput);
+		props.setInteger("maxSplits", rr.maxSplits);
+		props.setFloat("rrTargetUpperThroughput", rr.targetUpperThroughput);
+		props.setFloat("rrTargetLowerThroughput", rr.targetLowerThroughput);
 		m_integrator = static_cast<SamplingIntegrator *> (PluginManager::getInstance()->
 			createObject(MTS_CLASS(SamplingIntegrator), props));
 	}

@@ -63,6 +63,10 @@ MTS_NAMESPACE_BEGIN
 #define AssertEx(cond, explanation) ((void) 0)
 #define SAssert(cond) ((void) 0)
 #define SAssertEx(cond, explanation) ((void) 0)
+#define AssertWarn(cond) ((void) 0)
+#define AssertWarnEx(cond, explanation) ((void) 0)
+#define SAssertWarn(cond) ((void) 0)
+#define SAssertWarnEx(cond, explanation) ((void) 0)
 #else
 
 /* Assertions */
@@ -90,6 +94,30 @@ MTS_NAMESPACE_BEGIN
 /// Static assertion with a customizable error explanation (see \ref SLog)
 #define SAssertEx(cond, explanation) do { \
 		if (!(cond)) SLog(EError, "Assertion \"%s\" failed in %s:%i (" explanation ")", \
+		#cond, __FILE__, __LINE__); \
+	} while (0)
+
+/// Softly assert that a condition is true (to be used \a inside of classes that derive from \ref Object)
+#define AssertWarn(cond) do { \
+		if (!(cond)) Log(EWarn, "Assertion \"%s\" failed in %s:%i", \
+		#cond, __FILE__, __LINE__); \
+	} while (0)
+
+/// ``Static'' soft assertion (to be used \a outside of classes that derive from \ref Object)
+#define SAssertWarn(cond) do { \
+		if (!(cond)) SLog(EWarn, "Assertion \"%s\" failed in %s:%i", \
+		#cond, __FILE__, __LINE__); \
+	} while (0)
+
+/// Soft assertion with a customizable error explanation
+#define AssertWarnEx(cond, explanation) do { \
+		if (!(cond)) Log(EWarn, "Assertion \"%s\" failed in %s:%i (" explanation ")", \
+		#cond, __FILE__, __LINE__); \
+	} while (0)
+
+/// Static soft assertion with a customizable error explanation (see \ref SLog)
+#define SAssertWarnEx(cond, explanation) do { \
+		if (!(cond)) SLog(EWarn, "Assertion \"%s\" failed in %s:%i (" explanation ")", \
 		#cond, __FILE__, __LINE__); \
 	} while (0)
 #endif

@@ -227,7 +227,7 @@ MonteCarloIntegrator::MonteCarloIntegrator(const Properties &props)
 	if (m_maxDepth <= 0 && m_maxDepth != -1)
 		Log(EError, "'maxDepth' must be set to -1 (infinite) or a value greater than zero!");
 
-	if (m_maxDepth <= 0 && !m_rr.enabled())
+	if (m_maxDepth <= 0 && !m_rr.rouletteEnabled())
 		Log(EError, "Disabling russian roulette and having unlimited path length are mutually exclusive!");
 }
 

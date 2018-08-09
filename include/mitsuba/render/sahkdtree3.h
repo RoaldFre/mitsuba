@@ -498,6 +498,75 @@ protected:
 		}
 		return foundIntersection;
 	}
+
+	FINLINE void rayIntersectFully(const Ray &ray,
+			Float mint_, Float maxt_, std::vector<Intersection> &its,
+			const std::vector<Shape *> *shapes = NULL) const {
+		KDStackEntry stack[MTS_KD_MAXDEPTH];
+		int stackPos = 0;
+		Float mint = mint_, maxt = maxt_;
+		const KDNode *node = m_nodes;
+
+		while (node != NULL) {
+			if (maxt_ < mint)
+				break;
+
+			if (EXPECT_TAKEN(!node->isLeaf())) {
+				const Float split = (Float) node->getSplit();
+				const int axis = node->getAxis();
+				const float tPlane = (split - ray.o[axis]) * ray.dRcp[axis];
+				bool parallel = ray.d[axis] == 0;
+				if (EXPECT_NOT_TAKEN(parallel)) {
+					if (ray.o[axis] < split) {
+						node = node->getLeft();
+					} else if (ray.o[axis] > split) {
+						node = node->getRight();
+					} else /* edge case: ray.o[axis] == split */ {
+						stack[stackPos].node = node->getLeft();
+						stack[stackPos].mint = mint;
+						stack[stackPos].maxt = maxt;
+						++stackPos;
+						node = node->getRight();
+					}
+				} else { /* Ray not parallel to the splitting plane */
+					bool goingRight = ray.d[axis] > 0;
+					const KDNode * __restrict left = node->getLeft();
+					const KDNode * __restrict right = left + 1;
+					const KDNode * __restrict first  = goingRight ? left : right;
+					const KDNode * __restrict second = goingRight ? right : left;
+
+					if (tPlane > maxt) {
+						node = first;
+					} else if (tPlane < mint) {
+						node = second;
+					} else {
+						stack[stackPos].node = second;
+						stack[stackPos].mint = tPlane;
+						stack[stackPos].maxt = maxt;
+						++stackPos;
+						node = first;
+						maxt = tPlane;
+					}
+				}
+			} else {
+				for (unsigned int entry=node->getPrimStart(),
+						last = node->getPrimEnd(); entry != last; entry++) {
+					const IndexType primIdx = m_indices[entry];
+					cast()->intersectFully(ray, primIdx, mint, maxt, its, shapes);
+				}
+
+				if (stackPos > 0) {
+					--stackPos;
+					node = stack[stackPos].node;
+					mint = stack[stackPos].mint;
+					maxt = stack[stackPos].maxt;
+				} else {
+					break;
+				}
+			}
+		}
+	}
+
 public:
 	/**
 	 * \brief Empirically find the best traversal and intersection

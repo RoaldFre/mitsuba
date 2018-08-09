@@ -184,6 +184,19 @@ public: \
 	}
 
 /**
+ * \brief Template class version of \c MTS_IMPLEMENT_CLASS.
+ *
+ * You need to typedef the specific instantiation that you need and use 
+ * that (unique) name as a way of manually mangling the template. There can 
+ * be no actual template left in the name given to this macro.
+ */
+#define MTS_IMPLEMENT_CLASS_T(name, abstract, super) \
+	template<> Class *name::m_theClass = new Class(#name, abstract, #super); \
+	template<> const Class *name::getClass() const { \
+		return m_theClass;\
+	}
+
+/**
  * \brief Creates basic RTTI support for a class. To be used when the class
  * has a \a simple constructor (i.e. one wich does not take any arguments)
  *
@@ -205,6 +218,23 @@ public: \
 	}
 
 /**
+ * \brief Template class version of \c MTS_IMPLEMENT_CLASS_I.
+ *
+ * You need to typedef the specific instantiation that you need and use 
+ * that (unique) name as a way of manually mangling the template. There can 
+ * be no actual template left in the name given to this macro.
+ */
+#define MTS_IMPLEMENT_CLASS_TI(name, abstract, super) \
+	Object *__##name ##_inst() { \
+		return new name(); \
+	} \
+	template<> Class *name::m_theClass = new Class(#name, abstract, #super, (void *) &__##name ##_inst, NULL); \
+	template<> const Class *name::getClass() const { \
+		return m_theClass;\
+	}
+
+
+/**
  * \brief Creates basic RTTI support for a class. To be used when the class
  * can be unserialized from a binary data stream.
  *
@@ -222,6 +252,22 @@ public: \
 	} \
 	Class *name::m_theClass = new Class(#name, abstract, #super, NULL, (void *) &__##name ##_unSer); \
 	const Class *name::getClass() const { \
+		return m_theClass;\
+	}
+
+/**
+ * \brief Template class version of \c MTS_IMPLEMENT_CLASS_S.
+ *
+ * You need to typedef the specific instantiation that you need and use 
+ * that (unique) name as a way of manually mangling the template. There can 
+ * be no actual template left in the name given to this macro.
+ */
+#define MTS_IMPLEMENT_CLASS_TS(name, abstract, super) \
+	Object *__##name ##_unSer(Stream *stream, InstanceManager *manager) { \
+		return new name(stream, manager); \
+	} \
+	template<> Class *name::m_theClass = new Class(#name, abstract, #super, NULL, (void *) &__##name ##_unSer); \
+	template<> const Class *name::getClass() const { \
 		return m_theClass;\
 	}
 
@@ -247,6 +293,25 @@ public: \
 	} \
 	Class *name::m_theClass = new Class(#name, abstract, #super, (void *) &__##name ##_inst, (void *) &__##name ##_unSer); \
 	const Class *name::getClass() const { \
+		return m_theClass;\
+	}
+
+/**
+ * \brief Template class version of \c MTS_IMPLEMENT_CLASS_IS.
+ *
+ * You need to typedef the specific instantiation that you need and use 
+ * that (unique) name as a way of manually mangling the template. There can 
+ * be no actual template left in the name given to this macro.
+ */
+#define MTS_IMPLEMENT_CLASS_TIS(name, abstract, super) \
+	Object *__##name ##_unSer(Stream *stream, InstanceManager *manager) { \
+		return new name(stream, manager); \
+	} \
+	Object *__##name ##_inst() { \
+		return new name(); \
+	} \
+	template<> Class *name::m_theClass = new Class(#name, abstract, #super, (void *) &__##name ##_inst, (void *) &__##name ##_unSer); \
+	template<> const Class *name::getClass() const { \
 		return m_theClass;\
 	}
 

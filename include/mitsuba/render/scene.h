@@ -243,6 +243,55 @@ public:
 	}
 
 	/**
+	 * \brief Intersect a ray against all primitives stored in the scene
+	 * and return detailed intersection information of all intersections
+	 * along the ray.
+	 *
+	 * Note: No guarantee is made about the ordering of the intersections 
+	 * (i.e. they are not guaranteed to be ordered along increasing t 
+	 * value!)
+	 *
+	 * \param ray
+	 *    A 3-dimensional ray data structure with minimum/maximum
+	 *    extent information, as well as a time value (which applies
+	 *    when the shapes are in motion)
+	 *
+	 * \param its
+	 *    All intersections along the ray get added to this vector.
+	 *
+	 * \param shapes
+	 *    Optional: only return intersections of these shapes.
+	 */
+	inline void rayIntersectFully(const Ray &ray,
+			std::vector<Intersection> &its,
+			const std::vector<Shape *> *shapes = NULL) const {
+		m_kdtree->rayIntersectFully(ray, its, shapes);
+	}
+
+	inline void collectIntersections(Point o, Vector d, Float time,
+			Float maxDistance,
+			std::vector<Intersection> &intersections,
+			const std::vector<Shape*> *shapes = NULL) const {
+		Float inf = std::numeric_limits<Float>::infinity();
+		if (maxDistance > 0)
+			rayIntersectFully(Ray(o,d,Epsilon,maxDistance,time), intersections, shapes);
+		else
+			rayIntersectFully(Ray(o,d,Epsilon,inf,time), intersections, shapes);
+	}
+
+	inline void collectIntersectionsBidir(Point o, Vector d, Float time,
+			Float maxDistance,
+			std::vector<Intersection> &intersections,
+			const std::vector<Shape*> *shapes = NULL) const {
+		Float inf = std::numeric_limits<Float>::infinity();
+		if (maxDistance > 0)
+			rayIntersectFully(Ray(o,d,-maxDistance,maxDistance,time), intersections, shapes);
+		else
+			rayIntersectFully(Ray(o,d,-inf,inf,time), intersections, shapes);
+	}
+
+
+	/**
 	 * \brief Return the transmittance between \c p1 and \c p2 at the
 	 * specified time.
 	 *

@@ -23,6 +23,16 @@
 
 MTS_NAMESPACE_BEGIN
 
+#ifdef MTS_WITH_CANCELLATION_CHECKS
+# define CancellationCheck(a, b) do { \
+	if (math::catastrophicCancellation(a,b))\
+		Log(EWarn, "Catastrophic cancellation! (relative %e, %e & %e)",\
+				std::abs(a+b)/std::abs(a-b), a, b);\
+	} while (0)
+#else
+# define CancellationCheck(a, b) ((void) 0)
+#endif
+
 /**
  * Contains elementary 1D math functions that were either not provided by the standard,
  * or which are not consistently provided on all platforms/compilers
@@ -49,6 +59,8 @@ extern MTS_EXPORT_CORE double log2(double value);
 
 /// Generic clamping function
 template <typename Scalar> inline Scalar clamp(Scalar value, Scalar min, Scalar max) {
+	if (std::isnan(value))
+		return value;
 	return std::min(max, std::max(min, value));
 }
 
@@ -238,32 +250,48 @@ inline size_t roundToPowerOfTwo(size_t value) {
 
 	/// Arcsine variant that gracefully handles arguments > 1 that are due to roundoff errors
 	inline float safe_asin(float value) {
-		return std::asin(std::min(1.0f, std::max(-1.0f, value)));
+		return std::asin(clamp(value, -1.0f, 1.0f));
 	}
 
 	/// Arcsine variant that gracefully handles arguments > 1 that are due to roundoff errors
 	inline double safe_asin(double value) {
-		return std::asin(std::min(1.0, std::max(-1.0, value)));
+		return std::asin(clamp(value, -1.0, 1.0));
 	}
 
 	/// Arccosine variant that gracefully handles arguments > 1 that are due to roundoff errors
 	inline float safe_acos(float value) {
-		return std::acos(std::min(1.0f, std::max(-1.0f, value)));
+		return std::acos(clamp(value, -1.0f, 1.0f));
 	}
 
 	/// Arccosine variant that gracefully handles arguments > 1 that are due to roundoff errors
 	inline double safe_acos(double value) {
-		return std::acos(std::min(1.0, std::max(-1.0, value)));
+		return std::acos(clamp(value, -1.0, 1.0));
+	}
+
+	/// Arctan2 variant that gracefully handles arguments > 1 that are due to roundoff errors
+	inline float safe_atan2(float y, float x) {
+		return std::atan2(clamp(y, -1.0f, 1.0f),
+		                  clamp(x, -1.0f, 1.0f));
+	}
+
+	/// Arctan2 variant that gracefully handles arguments > 1 that are due to roundoff errors
+	inline double safe_atan2(double y, double x) {
+		return std::atan2(clamp(y, -1.0, 1.0),
+		                  clamp(x, -1.0, 1.0));
 	}
 
 	/// Square root variant that gracefully handles arguments < 0 that are due to roundoff errors
 	inline float safe_sqrt(float value) {
-		return std::sqrt(std::max(0.0f, value));
+		if (value < 0.0f) // if value is nan, we fall through and return sqrt(nan) == nan
+			return 0.0f;
+		return std::sqrt(value);
 	}
 
 	/// Square root variant that gracefully handles arguments < 0 that are due to roundoff errors
 	inline double safe_sqrt(double value) {
-		return std::sqrt(std::max(0.0, value));
+		if (value < 0.0) // if value is nan, we fall through and return sqrt(nan) == nan
+			return 0.0;
+		return std::sqrt(value);
 	}
 
 	/// Simple signum function -- note that it returns the FP sign of the input (and never zero)
@@ -275,6 +303,22 @@ inline size_t roundToPowerOfTwo(size_t value) {
 		#elif defined(DOUBLE_PRECISION)
 			return copysign((double) 1.0, value);
 		#endif
+	}
+
+	inline Float abs(Float value) {
+		#if defined(SINGLE_PRECISION)
+			return fabsf(value);
+		#elif defined(DOUBLE_PRECISION)
+			return fabs(value);
+		#endif
+	}
+
+	inline Float square(Float x) {
+		return x*x;
+	}
+
+	inline Float cube(Float x) {
+		return x*x*x;
 	}
 
 	/// Cast to single precision and round up if not exactly representable (passthrough)
@@ -307,6 +351,16 @@ inline size_t roundToPowerOfTwo(size_t value) {
 		if ((double) a > val)
 			b += a > 0 ? -1 : 1;
 		return a;
+	}
+
+	/// Is there catastrophic cancellation when computing a + b?
+	inline bool catastrophicCancellation(float a, float b) {
+		return std::abs(a+b)/std::abs(a-b) < 1e-4f;
+	}
+
+	/// Is there catastrophic cancellation when computing a + b?
+	inline bool catastrophicCancellation(double a, double b) {
+		return std::abs(a+b)/std::abs(a-b) < 1e-7;
 	}
 }; /* namespace math */
 

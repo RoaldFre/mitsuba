@@ -16,6 +16,10 @@
     along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
+#pragma once
+#if !defined(__MITSUBA_MEDIUM_HOMOGENEOUS_H_)
+#define __MITSUBA_MEDIUM_HOMOGENEOUS_H_
+
 #include <mitsuba/render/scene.h>
 #include "maxexp.h"
 
@@ -228,7 +232,7 @@ public:
 		} else {
 			Log(EError, "Specified an unknown sampling strategy");
 		}
-		Log(EDebug, "Using sampling strategy: %s", strategy.c_str());
+		Log(EInfo, "Using sampling strategy: %s", strategy.c_str());
 	}
 
 	HomogeneousMedium(Stream *stream, InstanceManager *manager)
@@ -279,13 +283,12 @@ public:
 
 	bool sampleDistance(const Ray &ray, MediumSamplingRecord &mRec,
 			Sampler *sampler, const Spectrum *throughput) const {
-		const Float wgt = m_mediumSamplingWeight;
 		Float rand = sampler->next1D(), sampledDistance;
 		Float samplingDensity = m_samplingDensity;
 
 		int sampledChannel = -1;
-		if (rand < wgt) {
-			rand /= wgt;
+		if (rand < m_mediumSamplingWeight) {
+			rand /= m_mediumSamplingWeight;
 			if (m_strategy != EMaximum) {
 				/* Choose the sampling density to be used */
 				if (m_strategy == EAutoSingle) {
@@ -374,8 +377,7 @@ public:
 					/* Force the contribution into a single channel */
 					if (i == sampledChannel) {
 						mRec.transmittance[i] = math::fastexp(-m_sigmaT[i] * sampledDistance)
-								* (throughput ? throughput->numNonZeroChannels()
-								              : SPECTRUM_SAMPLES);
+								* (throughput ? throughput->numNonZeroChannels() : SPECTRUM_SAMPLES);
 					} else {
 						mRec.transmittance[i] = 0;
 					}
@@ -384,8 +386,8 @@ public:
 				}
 			}
 		}
-		mRec.pdfSuccess = mRec.pdfSuccessRev = mRec.pdfSuccess * wgt;
-		mRec.pdfFailure                      = mRec.pdfFailure * wgt + (1-wgt);
+		mRec.pdfSuccessRev = mRec.pdfSuccess = mRec.pdfSuccess * m_mediumSamplingWeight;
+		mRec.pdfFailure = mRec.pdfFailureRev = m_mediumSamplingWeight * mRec.pdfFailure + (1-m_mediumSamplingWeight);
 		mRec.medium = this;
 		if (mRec.transmittance.max() < 1e-20)
 			mRec.transmittance = Spectrum(0.0f);
@@ -394,7 +396,6 @@ public:
 	}
 
 	void eval(const Ray &ray, MediumSamplingRecord &mRec, const Spectrum *throughput) const {
-		const Float wgt = m_mediumSamplingWeight;
 		Float distance = ray.maxt - ray.mint;
 		switch (m_strategy) {
 			case EManual:
@@ -431,8 +432,8 @@ public:
 		}
 
 		mRec.transmittance = (m_sigmaT * (-distance)).exp();
-		mRec.pdfSuccess = mRec.pdfSuccessRev = mRec.pdfSuccess * wgt;
-		mRec.pdfFailure                      = mRec.pdfFailure * wgt + (1-wgt);
+		mRec.pdfSuccess = mRec.pdfSuccessRev = mRec.pdfSuccess * m_mediumSamplingWeight;
+		mRec.pdfFailure = mRec.pdfFailureRev = mRec.pdfFailure * m_mediumSamplingWeight + (1-m_mediumSamplingWeight);
 		mRec.sigmaA = m_sigmaA;
 		mRec.sigmaS = m_sigmaS;
 		mRec.time = ray.time;
@@ -476,6 +477,6 @@ private:
 	Float m_albedo;
 };
 
-MTS_IMPLEMENT_CLASS_S(HomogeneousMedium, false, Medium)
-MTS_EXPORT_PLUGIN(HomogeneousMedium, "Homogeneous medium");
 MTS_NAMESPACE_END
+
+#endif

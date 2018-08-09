@@ -126,6 +126,26 @@ public:
 
 	/**
 	 * \brief Intersect a ray against all primitives stored in the kd-tree
+	 * and return detailed intersection information of all intersections
+	 * along the ray.
+	 *
+	 * \param ray
+	 *    A 3-dimensional ray data structure with minimum/maximum
+	 *    extent information, as well as a time value (which applies
+	 *    when the shapes are in motion)
+	 *
+	 * \param its
+	 *    All intersections along the ray get added to this vector.
+	 *
+	 * \param shapes
+	 *    Optional: only return intersections of these shapes.
+	 */
+	void rayIntersectFully(const Ray &ray,
+			std::vector<Intersection> &its,
+			const std::vector<Shape *> *shapes = NULL) const;
+
+	/**
+	 * \brief Intersect a ray against all primitives stored in the kd-tree
 	 * and return the traveled distance and intersected shape
 	 *
 	 * This function represents a performance compromise when the
@@ -332,6 +352,64 @@ protected:
 			return ta.rayIntersect(ray, mint, maxt, tempU, tempV, tempT);
 		} else {
 			return shape->rayIntersect(ray, mint, maxt);
+		}
+#endif
+	}
+
+	FINLINE void intersectFully(const Ray &ray, IndexType idx,
+			Float mint, Float maxt, std::vector<Intersection> &its,
+			const std::vector<Shape *> *shapes = NULL) const {
+		/* Going through existing cache routines. Compiler is sufficiently 
+		 * smart to optimize that all away, hopefully. */
+		IntersectionCache cache;
+
+#if defined(MTS_KD_CONSERVE_MEMORY)
+		IndexType shapeIdx = findShape(idx);
+		const Shape *shape = m_shapes[shapeIdx];
+		if (shapes && std::find(shapes->begin(), shapes->end(), shape) == shapes->end())
+			return;
+		if (EXPECT_TAKEN(m_triangleFlag[shapeIdx])) {
+			const TriMesh *mesh =
+				static_cast<const TriMesh *>(shape);
+			const Triangle &tri = mesh->getTriangles()[idx];
+			Float tempU, tempV, tempT;
+			if (tri.rayIntersect(mesh->getVertexPositions(), ray,
+						tempU, tempV, tempT)) {
+				if (tempT < mint || tempT > maxt)
+					return;
+				cache.shapeIndex = shapeIdx;
+				cache.primIndex = idx;
+				cache.u = tempU;
+				cache.v = tempV;
+
+				Intersection i;
+				i.t = tempT;
+				fillIntersectionRecord<true>(ray, &cache, i);
+				its.push_back(i);
+			}
+		} else {
+			shape->rayIntersectFully(ray, mint, maxt, its);
+		}
+#else
+		const TriAccel &ta = m_triAccel[idx];
+		const Shape *shape = m_shapes[ta.shapeIndex];
+		if (shapes && std::find(shapes->begin(), shapes->end(), shape) == shapes->end())
+			return;
+		if (EXPECT_TAKEN(m_triAccel[idx].k != KNoTriangleFlag)) {
+			Float tempU, tempV, tempT;
+			if (ta.rayIntersect(ray, mint, maxt, tempU, tempV, tempT)) {
+				cache.shapeIndex = ta.shapeIndex;
+				cache.primIndex = ta.primIndex;
+				cache.u = tempU;
+				cache.v = tempV;
+
+				Intersection i;
+				i.t = tempT;
+				fillIntersectionRecord<true>(ray, &cache, i);
+				its.push_back(i);
+			}
+		} else {
+			shape->rayIntersectFully(ray, mint, maxt, its);
 		}
 #endif
 	}

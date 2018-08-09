@@ -264,6 +264,75 @@ template <typename DataType, typename IndexType> void permute_inplace(
 	}
 }
 
+/**
+ * \brief Binary search in cumulative histogram.
+ *
+ * Performs a binary search in cumulative histogram bins. Useful for
+ * sampling from a histogram.
+ *
+ * Given a histogram with frequencies [0.1 0.4 0.3 0.2], the cumulative
+ * bins should be [0.1 0.5 0.8 1.0]. If x is then sampled from a uniform
+ * distribution between 0 and 1, the returned bin indices are distributed
+ * according to the histogram frequencies.
+ *
+ * When there is a sequence of equal-valued cumulative bins, the index of 
+ * the first bin in this sequence is returend in case x falls between (or 
+ * is equal to) this value and the next (higher) value after this sequence, 
+ * in order to avoid sampling from zero-weight bins.
+ *
+ * \param cumul The cumulative bins
+ * \param n The number of bins
+ * \param x The value whose bin to search
+ * \return The index of the bin that encloses x
+ */
+inline int binaryBinSearch(const Float *cumul, int n, Float x) {
+	// special case:
+	if (x <= cumul[0])
+		return 0;
+	// invar: cumul[lo] < x <= cumul[hi]
+	// with an implicit -infinity cumul weight at index '-1'
+	// The bin with index 'hi' is the one we need.
+	int lo = 0;
+	int hi = n - 1;
+	while (lo < hi - 1) {
+		int m = lo + (hi - lo)/2;
+		if (cumul[m] < x) {
+			lo = m;
+		} else {
+			hi = m;
+		}
+	}
+	/* Correct for zero-weight bins: return the first index of a sequence 
+	 * of equal valued cumulative bins */
+	while (hi > 0) {
+		if (cumul[hi] == cumul[hi-1])
+			hi--;
+		else
+			break;
+	}
+	return hi;
+}
+/**
+ * \brief Locate the bin corresponding to the given percentile.
+ *
+ * To sample from a histogram, feed a uniform random number between 0 and 1 
+ * to \c percentile. If \c prob is given, it gets set to the probability of 
+ * the chosen bin. */
+// TODO: overlapping functionality with DiscreteDistribution...
+inline int histogramSample(const Float *bins, int n, Float percentile,
+		Float *prob = NULL) {
+	if (n == 0)
+		return 0;
+	Float cumul[n];
+	cumul[0] = bins[0];
+	for (int i = 1; i < n; i++)
+		cumul[i] = cumul[i-1] + bins[i];
+	int idx = binaryBinSearch(cumul, n, percentile * cumul[n-1]);
+	if (prob)
+		*prob = bins[idx] / cumul[n-1];
+	return idx;
+}
+
 //! @}
 // -----------------------------------------------------------------------
 
@@ -286,12 +355,20 @@ extern MTS_EXPORT_CORE bool solveQuadratic(Float a, Float b,
 extern MTS_EXPORT_CORE bool solveQuadraticDouble(double a, double b,
 	double c, double &x0, double &x1);
 
-//// Convert radians to degrees
+/// Convert radians to degrees
 inline Float radToDeg(Float value) { return value * (180.0f / M_PI); }
 
 /// Convert degrees to radians
 inline Float degToRad(Float value) { return value * (M_PI / 180.0f); }
 
+/// Wrap an angle difference to -pi..pi.
+inline Float wrapTwoPi(Float x) {
+	return x - TWO_PI*floor(INV_TWOPI*(x + M_PI));
+}
+/// Wrap an angle difference to -pi/2..pi/2.
+inline Float wrapPi(Float x) {
+	return x - M_PI*floor(INV_PI*(x + HALF_PI));
+}
 /**
  * \brief Numerically well-behaved routine for computing the angle
  * between two unit direction vectors
@@ -307,6 +384,38 @@ template <typename VectorType> inline Float unitAngle(const VectorType &u, const
 		return M_PI - 2 * std::asin(0.5f * (v+u).length());
 	else
 		return 2 * std::asin(0.5f * (v-u).length());
+}
+
+inline Float roundToSignificantDigits(Float x, int digits)
+{
+	if (x == 0.0) // otherwise it will return 'nan' due to the log10() of zero
+		return 0.0;
+	Float factor = pow(10.0, digits - ceil(log10(math::abs(x))));
+	return std::round(x * factor) / factor;
+}
+
+FINLINE Float roundFloatForStability(Float x) {
+#ifdef DOUBLE_PRECISION
+	return (float) x;
+#else
+	return roundToSignificantDigits(x, 4);
+#endif
+}
+
+template <typename VectorType> inline VectorType roundVectorForStability(
+		const VectorType &v) {
+	return VectorType(roundFloatForStability(v.x),
+			roundFloatForStability(v.y), roundFloatForStability(v.z));
+}
+
+template <typename PointType> inline PointType roundPointForStability(
+		const PointType &p) {
+	return roundVectorForStability(p);
+}
+
+template <typename VectorType> inline VectorType roundDirectionForStability(
+		const VectorType &d) {
+	return normalize(roundVectorForStability(d));
 }
 
 //! @}
@@ -397,6 +506,76 @@ extern MTS_EXPORT_CORE Vector sphericalDirection(Float theta, Float phi);
 
 /// Convert a direction to spherical coordinates
 extern MTS_EXPORT_CORE Point2 toSphericalCoordinates(const Vector &v);
+
+
+// Online variance calulation by Knuth, referenced by Wikipedia [August 2012]
+//   http://en.wikipedia.org/wiki/Algorithms_for_calculating_variance
+//   Donald E. Knuth (1998). The Art of Computer Programming, volume 2:
+//   Seminumerical Algorithms, 3rd edn., p. 232. Boston: Addison-Wesley.
+/* NOTE: This was copied from test_simdtonemap.cpp, but without the 
+ * explicit SSE max-instruction and without the m_n > 1 assertion in 
+ * variance() */
+class VarianceFunctor
+{
+public:
+	VarianceFunctor() : m_n(0), m_mean(0.0), m_M2(0.0),
+		m_max(-std::numeric_limits<Float>::infinity()) {}
+
+	inline void update(Float x) {
+		++m_n;
+		Float delta = x - m_mean;
+		m_mean += delta / m_n;
+		m_M2   += delta * (x - m_mean);
+		m_min = std::min(m_min, x);
+		m_max = std::max(m_max, x);
+	}
+
+	inline Float mean() const {
+		return m_mean;
+	}
+
+	inline Float variance() const {
+		return m_M2 / (m_n - 1);
+	}
+
+	inline Float stddev() const {
+		return sqrt(variance());
+	}
+
+	inline Float min() const {
+		return m_min;
+	}
+
+	inline Float max() const {
+		return m_max;
+	}
+
+	inline Float errorOfMean() const {
+		if (m_n < 2)
+			return 1./0.;
+		return sqrt(variance() / m_n);
+	}
+
+	inline size_t num() const {
+		return m_n;
+	}
+
+	void reset() {
+		m_n    = 0;
+		m_mean = 0.0;
+		m_M2   = 0.0;
+		m_min  =  std::numeric_limits<Float>::infinity();
+		m_max  = -std::numeric_limits<Float>::infinity();
+	}
+
+private:
+
+	size_t m_n;
+	Float m_mean;
+	Float m_M2;
+	Float m_min;
+	Float m_max;
+};
 
 //! @}
 // -----------------------------------------------------------------------

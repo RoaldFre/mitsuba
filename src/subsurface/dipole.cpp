@@ -334,7 +334,8 @@ public:
 	}
 
 	Spectrum Lo(const Scene *scene, Sampler *sampler,
-			const Intersection &its, const Vector &d, int depth) const {
+			const Intersection &its, const Vector &d,
+			const Spectrum &through, int depth) const {
 		if (!m_active || dot(its.shFrame.n, d) < 0)
 			return Spectrum(0.0f);
 		IsotropicDipoleQuery query(m_zr, m_zv, m_sigmaTr, its.p);

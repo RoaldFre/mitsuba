@@ -112,13 +112,14 @@ public:
 	 * Should ideally importance sample with respect to the transmittance.
 	 * It is assumed that the ray has a normalized direction value.
 	 *
-	 * \param ray      Ray, along which a distance should be sampled
-	 * \param mRec     Medium sampling record to be filled with the result
-	 * \return         \c false if the maximum distance was exceeded, or if
-	 *                 no interaction inside the medium could be sampled.
+	 * \param ray        Ray, along which a distance should be sampled
+	 * \param mRec       Medium sampling record to be filled with the result
+	 * \param throughput The throughput up till now
+	 * \return           \c false if the maximum distance was exceeded, or if
+	 *                   no interaction inside the medium could be sampled.
 	 */
-	virtual bool sampleDistance(const Ray &ray,
-		MediumSamplingRecord &mRec, Sampler *sampler) const = 0;
+	virtual bool sampleDistance(const Ray &ray, MediumSamplingRecord &mRec,
+				Sampler *sampler, const Spectrum *throughput = NULL) const = 0;
 
 	/**
 	 * \brief Compute the 1D density of sampling distance \a ray.maxt
@@ -131,8 +132,8 @@ public:
 	 * For convenience, it also stores the transmittance along the
 	 * supplied ray segment within \a mRec.
 	 */
-	virtual void eval(const Ray &ray,
-		MediumSamplingRecord &mRec) const = 0;
+	virtual void eval(const Ray &ray, MediumSamplingRecord &mRec,
+				const Spectrum *throughput = NULL) const = 0;
 
 	//! @}
 	// =============================================================

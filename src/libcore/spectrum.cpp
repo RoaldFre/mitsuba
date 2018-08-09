@@ -17,6 +17,7 @@
 */
 
 #include <mitsuba/core/quad.h>
+#include <mitsuba/render/sampler.h>
 #include <boost/filesystem/fstream.hpp>
 #include <boost/bind.hpp>
 
@@ -450,6 +451,20 @@ void Spectrum::fromRGBE(const uint8_t rgbe[4], EConversionIntent intent) {
 	} else {
 		s[0] = s[1] = s[2] = 0.0f;
 	}
+}
+
+int Spectrum::sampleNonZeroChannelUniform(Sampler *sampler) const {
+	int targetNonZeroIndex = sampler->next1D() * numNonZeroChannels();
+	int i = 0;
+	int nonZeroIndex = -1; /* index in 'non-zero channels' */
+	while (nonZeroIndex != targetNonZeroIndex) {
+		if (s[i] != 0)
+			nonZeroIndex++;
+		i++;
+	}
+	int channel = i-1;
+	SAssert(channel >= 0 && channel < SPECTRUM_SAMPLES && s[channel] != 0);
+	return channel;
 }
 
 std::string Spectrum::toString() const {

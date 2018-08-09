@@ -200,19 +200,20 @@ public:
 	/// Construct an invalid radiance query record
 	inline RadianceQueryRecord()
 	 : type(0), scene(NULL), sampler(NULL), medium(NULL),
-	   depth(0), alpha(0), dist(-1), extra(0) {
+	   depth(0), splits(0), throughput(1.0f), alpha(0), dist(-1), extra(0) {
 	}
 
 	/// Construct a radiance query record for the given scene and sampler
 	inline RadianceQueryRecord(const Scene *scene, Sampler *sampler)
 	 : type(0), scene(scene), sampler(sampler), medium(NULL),
-	   depth(0), alpha(0), dist(-1), extra(0) {
+	   depth(0), splits(0), throughput(1.0f), alpha(0), dist(-1), extra(0) {
 	}
 
 	/// Copy constructor
 	inline RadianceQueryRecord(const RadianceQueryRecord &rRec)
 	 : type(rRec.type), scene(rRec.scene), sampler(rRec.sampler), medium(rRec.medium),
-	   depth(rRec.depth), alpha(rRec.alpha), dist(rRec.dist), extra(rRec.extra) {
+	   depth(rRec.depth), splits(rRec.splits), throughput(rRec.throughput),
+	   alpha(rRec.alpha), dist(rRec.dist), extra(rRec.extra) {
 	}
 
 	/// Begin a new query of the given type
@@ -220,26 +221,34 @@ public:
 		type = _type;
 		medium = _medium;
 		depth = 1;
+		splits = 0;
+		throughput = Spectrum(1.0f);
 		extra = 0;
 		alpha = 1;
 	}
 
 	/// Initialize the query record for a recursive query
-	inline void recursiveQuery(const RadianceQueryRecord &parent, int _type) {
+	inline void recursiveQuery(const RadianceQueryRecord &parent, int _type,
+			Spectrum thisWeight = Spectrum(1.0f)) {
 		type = _type;
 		scene = parent.scene;
 		sampler = parent.sampler;
 		depth = parent.depth+1;
+		splits = parent.splits;
+		throughput = parent.throughput * thisWeight;
 		medium = parent.medium;
 		extra = parent.extra;
 	}
 
 	/// Initialize the query record for a recursive query
-	inline void recursiveQuery(const RadianceQueryRecord &parent) {
+	inline void recursiveQuery(const RadianceQueryRecord &parent,
+			Spectrum thisWeight = Spectrum(1.0f)) {
 		type = parent.type | EIntersection;
 		scene = parent.scene;
 		sampler = parent.sampler;
 		depth = parent.depth+1;
+		splits = parent.splits;
+		throughput = parent.throughput * thisWeight;
 		medium = parent.medium;
 		extra = parent.extra;
 	}
@@ -247,20 +256,27 @@ public:
 	/**
 	 * \brief Search for a ray intersection
 	 *
-	 * This function does several things at once: if the
-	 * intersection has already been provided, it returns.
-	 *
-	 * Otherwise, it
-	 * 1. performs the ray intersection
-	 * 2. computes the transmittance due to participating media
-	 *   and stores it in \c transmittance.
-	 * 3. sets the alpha value (if \c EAlpha is set in \c type)
-	 * 4. sets the distance value (if \c EDistance is set in \c type)
-	 * 5. clears the \c EIntersection flag in \c type
+	 * This function does several things at once: if the intersection has
+	 * already been provided, it returns. Otherwise, it performs the ray
+	 * intersection and calls \c setIntersection() on the resulting
+	 * intersection to update the internal bookkeeping.
 	 *
 	 * \return \c true if there is a valid intersection.
 	 */
 	inline bool rayIntersect(const RayDifferential &ray);
+
+	/**
+	 * \brief Set the intersection record and update bookkeeping.
+	 *
+	 * This functions:
+	 * 1. assigns the ray intersection record
+	 * 2. computes the transmittance due to participating media
+	 *    and stores it in \c transmittance.
+	 * 3. sets the alpha value (if \c EAlpha is set in \c type)
+	 * 4. sets the distance value (if \c EDistance is set in \c type)
+	 * 5. clears the \c EIntersection flag in \c type
+	 */
+	inline void setIntersection(const Intersection &its);
 
 	/// Retrieve a 2D sample
 	inline Point2 nextSample2D();
@@ -288,6 +304,18 @@ public:
 
 	/// Current depth value (# of light bounces) (*)
 	int depth;
+
+	/// Current number of path splits (0 means no splits) (*)
+	int splits;
+
+	/** 
+	 * \brief Global throughput of the path so far.
+	 *
+	 * In case the integrator gets called as a sub-integrator, then this 
+	 * should be set to the throughput of the path so far. It is used 
+	 * internally for path splitting and Russian Roulette decisions. It is 
+	 * *NOT* used to rescale the returned Li. */
+	Spectrum throughput;
 
 	/// Surface interaction data structure (*)
 	Intersection its;
@@ -321,6 +349,18 @@ public:
 	 */
 	virtual Spectrum Li(const RayDifferential &ray,
 		RadianceQueryRecord &rRec) const = 0;
+
+
+	/** 
+	 * \brief Generate a sample of the irradiance at a given surface point.
+	 *
+	 * This implementation samples either the direct irradiance or the 
+	 * indirect irradiance over a cosine weighted hemisphere, based on the 
+	 * probability \c indirectProb. The sampled incoming direction is 
+	 * stored in \c d. */
+	Spectrum Esample(const Scene *scene, const Intersection &its,
+			const Medium *medium, Vector &d, Sampler *sampler, Float 
+			indirectProb, int depth = 0) const;
 
 	/**
 	 * \brief Estimate the irradiance at a given surface point
@@ -455,9 +495,19 @@ public:
 	int forcedDepth;
 
 	/**
+	 * The maximum number of times that a path can be split.
+	 */
+	int maxSplits;
+
+	/**
 	 * Russian roulette will try to keep the path throughput at or above
 	 * this value. */
-	Float targetThroughput;
+	Float targetLowerThroughput;
+
+	/**
+	 * Path splitting will try to keep the path throughput at or below
+	 * this value. */
+	Float targetUpperThroughput;
 
 	/**
 	 * When forcing termination for path longer than \c forcedDepth, use
@@ -471,37 +521,59 @@ public:
 	/// Construct with the given properties.
 	inline RussianRoulette(const Properties &props) {
 		startDepth = props.getInteger("rrDepth", 5);
-		forcedDepth = props.getInteger("rrForcedDepth", 100);
-		targetThroughput = props.getFloat("rrTargetThroughput", 1.0f);
+		forcedDepth = props.getInteger("rrForcedDepth", -1);
+		maxSplits = props.getInteger("maxSplits", 1000);
+		targetLowerThroughput = props.getFloat("rrTargetLowerThroughput", 0.3f);
+		targetUpperThroughput = props.getFloat("rrTargetUpperThroughput", 3.0f);
 
-		if (targetThroughput <= 0) {
-			SLog(EError, "Russian roulette target throughput should be larger than zero");
+		if (targetLowerThroughput <= 0 || targetUpperThroughput <= 0) {
+			SLog(EError, "Lower and upper target throughputs should be "
+					"larger than zero");
 		}
+		if (targetLowerThroughput > targetUpperThroughput) {
+			SLog(EError, "Lower target throughput should be lower than the "
+					"upper taraget throughput");
+		}
+
+		SLog(EDebug, "Loaded RussianRoulette with rrDepth %d, "
+				"rrForcedDepth %d, maxSplits %d, rrTargetLowerThroughput %f, "
+				"rrTargetUpperThroughput %f",
+				startDepth, forcedDepth, maxSplits, targetLowerThroughput, 
+				targetUpperThroughput);
 	}
 	/// Unserialize from a stream.
 	inline RussianRoulette(Stream *stream) {
 		startDepth = stream->readInt();
 		forcedDepth = stream->readInt();
-		targetThroughput = stream->readFloat();
+		maxSplits = stream->readInt();
+		targetLowerThroughput = stream->readFloat();
+		targetUpperThroughput = stream->readFloat();
 	}
 	/// Serialize to a stream.
 	inline void serialize(Stream *stream) const {
 		stream->writeInt(startDepth);
 		stream->writeInt(forcedDepth);
-		stream->writeFloat(targetThroughput);
+		stream->writeInt(maxSplits);
+		stream->writeFloat(targetLowerThroughput);
+		stream->writeFloat(targetUpperThroughput);
 	}
 
 	/// Is Russian roulette enabled?
-	inline bool enabled() const {
+	inline bool rouletteEnabled() const {
 		return startDepth >= 0;
+	}
+
+	/// Is path splitting roulette enabled?
+	inline bool splittingEnabled() const {
+		return maxSplits > 0;
 	}
 
 	/**
 	 * Performs a Russian Roulette path termination decision.
 	 *
-	 * Tries to keep path weights greater than or equal to targetThroughput,
-	 * while accounting for the solid angle compression at refractive index
-	 * boundaries.
+	 * Tries to keep path weights greater than or equal to 
+	 * targetLowerThroughput, while accounting for the solid angle 
+	 * compression at refractive index boundaries.
 	 * For depths greater than forcedDepth (if positive): stop with at
 	 * least some probability to avoid getting stuck (e.g. due to total
 	 * internal reflection).
@@ -520,7 +592,7 @@ public:
 	 */
 	inline Float roulette(int depth, const Spectrum &throughput,
 			Float eta, Sampler *sampler) const {
-		if (!enabled() || depth < startDepth)
+		if (!rouletteEnabled() || depth < startDepth)
 			return 1.0f;
 
 		return roulette(throughput, eta, sampler,
@@ -552,14 +624,60 @@ public:
 	 */
 	inline Float roulette(const Spectrum &throughput, Float eta,
 			Sampler *sampler, bool forced) const {
-		if (!enabled())
+		if (!rouletteEnabled())
 			return 1.0f;
 
 		Float qMax = forced ? FORCED_MAX_PROB : 1.0f;
-		Float q = std::min(throughput.max() * eta * eta / targetThroughput, qMax);
+		Float q = std::min(qMax,
+				throughput.max() * eta*eta / targetLowerThroughput);
 		if (q < 1.0f && sampler->next1D() >= q)
 				return 0.0f;
 		return q;
+	}
+
+	/**
+	 * Performs a path splitting decision.
+	 *
+	 * Tries to keep path weights less than or equal to 
+	 * targetUpperThroughput, while accounting for the solid angle 
+	 * compression at refractive index boundaries. For depths greater than 
+	 * forcedDepth (if positive): stop with at least some probability to 
+	 * avoid getting stuck (e.g. due to total internal reflection).
+	 *
+	 * \param splits
+	 *    Use this to provide the total number of splits that have happened 
+	 *    on the current path so far. This gets incremented with the number 
+	 *    of splits that should be performed (i.e. the return value).
+	 * \param throughput
+	 *    The current path throughput (corrected for previous Russian
+	 *    roulette steps along the path if applicable).
+	 * \param eta
+	 *    The ratio of indices of refraction accumulated along the path.
+	 * \return
+	 *    The number of splits to perform (0 means continue with the 
+	 *    current single path, 1 means split once and continue with two 
+	 *    paths, etc).
+	 */
+	inline int split(int &splits, const Spectrum &throughput,
+			Float eta, Sampler *sampler) const {
+		if (!splittingEnabled())
+			return 0;
+
+		SAssert(throughput.isFinite());
+
+		int numSplitsNow = 0;
+		Float peak = throughput.max() * eta * eta;
+		if (peak > targetUpperThroughput) {
+			Float numIdealSplitsFlt = 0.5f + peak / targetUpperThroughput;
+			/* /2 to leave some for a possible next recursion step: */
+			int maxRemainingSplits = (maxSplits - splits) / 2;
+			SAssert(maxRemainingSplits >= 0);
+			int numIdealSplits = std::min((Float)INT_MAX, numIdealSplitsFlt);
+			numSplitsNow = std::min(numIdealSplits, maxRemainingSplits);
+			splits += numSplitsNow;
+			SAssert(splits <= maxSplits);
+		}
+		return numSplitsNow;
 	}
 
 	/// Return a string representation
@@ -567,7 +685,9 @@ public:
 		std::ostringstream oss;
 		oss << "RR[start " << startDepth <<
 		       ", forced " << forcedDepth <<
-		       ", target " << targetThroughput << "]";
+		       ", maxSplits " << maxSplits <<
+		       ", targetLo " << targetLowerThroughput <<
+		       ", targetHi " << targetUpperThroughput << "]";
 		return oss.str();
 	}
 };
@@ -583,6 +703,11 @@ class MTS_EXPORT_RENDER MonteCarloIntegrator : public SamplingIntegrator {
 public:
 	/// Serialize this integrator to a binary data stream
 	void serialize(Stream *stream, InstanceManager *manager) const;
+
+	const RussianRoulette &getRR() const { return m_rr; } 
+	int getMaxDepth() const { return m_maxDepth; }
+	bool strictNormals() const { return m_strictNormals; }
+	bool hideEmitters() const { return m_hideEmitters; }
 
 	MTS_DECLARE_CLASS()
 protected:

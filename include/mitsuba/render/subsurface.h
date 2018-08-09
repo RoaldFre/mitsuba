@@ -61,15 +61,28 @@ public:
 
 	/// Get the exitant radiance for a point on the surface
 	virtual Spectrum Lo(const Scene *scene, Sampler *sampler,
-		const Intersection &its, const Vector &d, int depth = 0) const = 0;
+		const Intersection &its, const Vector &d_out,
+		const Spectrum &throughput, int depth = 0) const = 0;
+
+	virtual bool supportsLi() const {
+		return false;
+	}
+
+	/// Get the incident radiance for a point on the inside of the surface
+	virtual Spectrum Li(const Scene *scene, Sampler *sampler,
+			const Intersection &its, const Vector &d, 
+			const Spectrum &throughput, int &splits, int depth) const {
+		Log(EError, "Li unsupported for this subsurface material");
+		return Spectrum(0.0f);
+	}
 
 	/// Serialize this subsurface integrator to a binary data stream
-	void serialize(Stream *stream, InstanceManager *manager) const;
+	virtual void serialize(Stream *stream, InstanceManager *manager) const;
 
 	/// Set the parent node of the subsurface integrator
 	void setParent(ConfigurableObject *parent);
 
-	MTS_DECLARE_CLASS()
+	MTS_DECLARE_CLASS();
 protected:
 	/// Create a new subsurface scattering class
 	Subsurface(const Properties &props);

@@ -186,6 +186,35 @@ public:
 		return true;
 	}
 
+	void rayIntersectFully(const Ray &ray, Float mint, Float maxt,
+			std::vector<Intersection> &its) const {
+		Vector3d o = Vector3d(ray.o) - Vector3d(m_center);
+		Vector3d d(ray.d);
+
+		double A = d.lengthSquared();
+		double B = 2 * dot(o, d);
+		double C = o.lengthSquared() - m_radius*m_radius;
+
+		double nearT, farT;
+		if (!solveQuadraticDouble(A, B, C, nearT, farT))
+			return;
+
+		if (!(nearT <= maxt && farT >= mint)) /* NaN-aware conditionals */
+			return;
+
+		Intersection i;
+		if (mint <= nearT && nearT <= maxt) {
+			i.t = (Float) nearT;
+			fillIntersectionRecord(ray, NULL, i);
+			its.push_back(i);
+		}
+		if (mint <= farT && farT <= maxt) {
+			i.t = (Float) farT;
+			fillIntersectionRecord(ray, NULL, i);
+			its.push_back(i);
+		}
+	}
+
 	bool rayIntersect(const Ray &ray, Float mint, Float maxt) const {
 		Vector3d o = Vector3d(ray.o) - Vector3d(m_center);
 		Vector3d d(ray.d);
@@ -248,7 +277,7 @@ public:
 		if (m_flipNormals)
 			its.geoFrame.n *= -1;
 
- 		its.shFrame.n = its.geoFrame.n;
+ 		its.shFrame = its.geoFrame;
  		its.hasUVPartials = false;
 		its.instance = NULL;
 		its.time = ray.time;

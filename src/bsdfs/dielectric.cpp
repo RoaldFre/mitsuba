@@ -36,6 +36,12 @@ MTS_NAMESPACE_BEGIN
  *     \parameter{specular\showbreak Transmittance}{\Spectrum\Or\Texture}{Optional
  *         factor that can be used to modulate the specular transmission component. Note
  *         that for physical realism, this parameter should never be touched. \default{1.0}}
+      \parameter{noExternalReflection}{\Boolean}{
+ *         If set to \code{true}, then reflections towards the side with 
+ *         the lower IOR will be ignored. \default{\code{false}}}}
+ *     \parameter{noInternalReflection}{\Boolean}{
+ *         If set to \code{true}, then reflections towards the side with 
+ *         the higher IOR will be ignored. \default{\code{false}}}}
  * }
  *
  * \renderings{
@@ -162,6 +168,8 @@ public:
 			props.getSpectrum("specularReflectance", Spectrum(1.0f)));
 		m_specularTransmittance = new ConstantSpectrumTexture(
 			props.getSpectrum("specularTransmittance", Spectrum(1.0f)));
+		m_noExternalReflection = props.getBoolean("noExternalReflection", false);
+		m_noInternalReflection = props.getBoolean("noInternalReflection", false);
 	}
 
 	SmoothDielectric(Stream *stream, InstanceManager *manager)
@@ -170,6 +178,8 @@ public:
 		m_specularReflectance = static_cast<Texture *>(manager->getInstance(stream));
 		m_specularTransmittance = static_cast<Texture *>(manager->getInstance(stream));
 		m_invEta = 1 / m_eta;
+		m_noExternalReflection = stream->readBool();
+		m_noInternalReflection = stream->readBool();
 		configure();
 	}
 
@@ -179,6 +189,8 @@ public:
 		stream->writeFloat(m_eta);
 		manager->serialize(stream, m_specularReflectance.get());
 		manager->serialize(stream, m_specularTransmittance.get());
+		stream->writeBool(m_noExternalReflection);
+		stream->writeBool(m_noInternalReflection);
 	}
 
 	void configure() {
@@ -235,6 +247,17 @@ public:
 		Float F = fresnelDielectricExt(Frame::cosTheta(bRec.wi), cosThetaT, m_eta);
 
 		if (Frame::cosTheta(bRec.wi) * Frame::cosTheta(bRec.wo) >= 0) {
+			Float cosTheta = Frame::cosTheta(bRec.wi);
+			if (m_eta < 1)
+				cosTheta = -cosTheta;
+			if (m_noExternalReflection) {
+				if (cosTheta > 0) // reflection towards the side with lower IOR
+					return Spectrum(0.0f);
+			}
+			if (m_noInternalReflection) {
+				if (cosTheta < 0) // reflection towards the side with higher IOR
+					return Spectrum(0.0f);
+			}
 			if (!sampleReflection || std::abs(dot(reflect(bRec.wi), bRec.wo)-1) > DeltaEpsilon)
 				return Spectrum(0.0f);
 
@@ -262,6 +285,17 @@ public:
 		Float F = fresnelDielectricExt(Frame::cosTheta(bRec.wi), cosThetaT, m_eta);
 
 		if (Frame::cosTheta(bRec.wi) * Frame::cosTheta(bRec.wo) >= 0) {
+			Float cosTheta = Frame::cosTheta(bRec.wi);
+			if (m_eta < 1)
+				cosTheta = -cosTheta;
+			if (m_noExternalReflection) {
+				if (cosTheta > 0) // reflection towards the side with lower IOR
+					return 0.0f;
+			}
+			if (m_noInternalReflection) {
+				if (cosTheta < 0) // reflection towards the side with higher IOR
+					return 0.0f;
+			}
 			if (!sampleReflection || std::abs(dot(reflect(bRec.wi), bRec.wo)-1) > DeltaEpsilon)
 				return 0.0f;
 
@@ -283,8 +317,19 @@ public:
 		Float cosThetaT;
 		Float F = fresnelDielectricExt(Frame::cosTheta(bRec.wi), cosThetaT, m_eta);
 
+		Float cosTheta = Frame::cosTheta(bRec.wi);
+		if (m_eta < 1)
+			cosTheta = -cosTheta;
 		if (sampleTransmission && sampleReflection) {
 			if (sample.x <= F) {
+				if (m_noExternalReflection) {
+					if (cosTheta > 0) // reflection towards the side with lower IOR
+						return Spectrum(0.0f);
+				}
+				if (m_noInternalReflection) {
+					if (cosTheta < 0) // reflection towards the side with higher IOR
+						return Spectrum(0.0f);
+				}
 				bRec.sampledComponent = 0;
 				bRec.sampledType = EDeltaReflection;
 				bRec.wo = reflect(bRec.wi);
@@ -307,6 +352,14 @@ public:
 				return m_specularTransmittance->eval(bRec.its) * (factor * factor);
 			}
 		} else if (sampleReflection) {
+			if (m_noExternalReflection) {
+				if (cosTheta > 0) // reflection towards the side with lower IOR
+					return Spectrum(0.0f);
+			}
+			if (m_noInternalReflection) {
+				if (cosTheta < 0) // reflection towards the side with higher IOR
+					return Spectrum(0.0f);
+			}
 			bRec.sampledComponent = 0;
 			bRec.sampledType = EDeltaReflection;
 			bRec.wo = reflect(bRec.wi);
@@ -341,8 +394,19 @@ public:
 		Float cosThetaT;
 		Float F = fresnelDielectricExt(Frame::cosTheta(bRec.wi), cosThetaT, m_eta);
 
+		Float cosTheta = Frame::cosTheta(bRec.wi);
+		if (m_eta < 1)
+			cosTheta = -cosTheta;
 		if (sampleTransmission && sampleReflection) {
 			if (sample.x <= F) {
+				if (m_noExternalReflection) {
+					if (cosTheta > 0) // reflection towards the side with lower IOR
+						return Spectrum(0.0f);
+				}
+				if (m_noInternalReflection) {
+					if (cosTheta < 0) // reflection towards the side with higher IOR
+						return Spectrum(0.0f);
+				}
 				bRec.sampledComponent = 0;
 				bRec.sampledType = EDeltaReflection;
 				bRec.wo = reflect(bRec.wi);
@@ -363,6 +427,14 @@ public:
 				return m_specularTransmittance->eval(bRec.its) * (factor * factor);
 			}
 		} else if (sampleReflection) {
+			if (m_noExternalReflection) {
+				if (cosTheta > 0) // reflection towards the side with lower IOR
+					return Spectrum(0.0f);
+			}
+			if (m_noInternalReflection) {
+				if (cosTheta < 0) // reflection towards the side with higher IOR
+					return Spectrum(0.0f);
+			}
 			bRec.sampledComponent = 0;
 			bRec.sampledType = EDeltaReflection;
 			bRec.wo = reflect(bRec.wi);
@@ -412,6 +484,8 @@ private:
 	Float m_eta, m_invEta;
 	ref<Texture> m_specularTransmittance;
 	ref<Texture> m_specularReflectance;
+	bool m_noExternalReflection;
+	bool m_noInternalReflection;
 };
 
 /* Fake glass shader -- it is really hopeless to visualize

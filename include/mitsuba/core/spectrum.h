@@ -463,6 +463,14 @@ public:
 		return false;
 	}
 
+	/// Check for finiteness
+	inline bool isFinite() const {
+		for (int i=0; i<N; i++)
+			if (!std::isfinite(s[i]))
+				return false;
+		return true;
+	}
+
 	/// Returns whether the spectrum only contains valid (non-NaN, nonnegative) samples
 	inline bool isValid() const {
 		for (int i=0; i<N; i++)
@@ -483,6 +491,19 @@ public:
 		for (int i=0; i<N; i++)
 			result += s[i];
 		return result * (1.0f / N);
+	}
+
+	/// Return the average over all non-nan-wavelengths (undefined behaviour if everything is nan)
+	inline Scalar averageNonNan() const {
+		Scalar result = 0.0f;
+		int numNonNan = 0;
+		for (int i=0; i<N; i++) {
+			if (std::isnan(s[i]))
+				continue;
+			result += s[i];
+			numNonNan++;
+		}
+		return result * (1.0f / numNonNan);
 	}
 
 	/// Component-wise absolute value
@@ -555,6 +576,14 @@ public:
 		return result;
 	}
 
+	/// Return the highest absolute-valued spectral sample
+	inline Scalar maxAbsolute() const {
+		Scalar result = std::abs(s[0]);
+		for (int i=1; i<N; i++)
+			result = std::max(result, std::abs(s[i]));
+		return result;
+	}
+
 	/// Negate
 	inline TSpectrum operator-() const {
 		TSpectrum value;
@@ -580,6 +609,23 @@ public:
 				return false;
 		}
 		return true;
+	}
+
+	/**
+	 * \brief Invert this spectrum (1/x) but keep zero channels at zero
+	 *
+	 * This can be used to switch between pdfs and Monte Carlo weights 
+	 * where some spectral channels may not have been able to be sampled.
+	 */
+	inline TSpectrum invertButKeepZero() const {
+		TSpectrum result;
+		for (int i=0; i<N; i++) {
+			if (math::abs(s[i]) <= RCPOVERFLOW)
+				result[i] = 0;
+			else
+				result[i] = 1.0f/s[i];
+		}
+		return result;
 	}
 
 	/// Serialize this spectrum to a stream
@@ -864,6 +910,34 @@ public:
 	/// Inequality test
 	inline bool operator!=(const Spectrum &val) const {
 		return !operator==(val);
+	}
+
+	/**
+	 * \brief Returns the number of non-zero spectral channels
+	 *
+	 * If nonZeroChannel is given, then this gets set to a non-zero 
+	 * spectral channel. Useful for when there is only one non-zero 
+	 * spectral channel, for instance. */
+	inline int numNonZeroChannels(int *nonZeroChannel = NULL) const {
+		int N = 0;
+		for (int i = 0; i < SPECTRUM_SAMPLES; i++) {
+			if (s[i] != 0) {
+				N++;
+				if (nonZeroChannel)
+					*nonZeroChannel = i;
+			}
+		}
+		return N;
+	}
+
+	int sampleNonZeroChannelUniform(Sampler *sampler) const;
+
+	inline Spectrum zeroMask() const {
+		Spectrum mask;
+		for (int i = 0; i < SPECTRUM_SAMPLES; i++) {
+			mask[i] = (s[i] != 0);
+		}
+		return mask;
 	}
 
 	/// Return a string representation

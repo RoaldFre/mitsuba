@@ -62,6 +62,9 @@ public:
 	/// Does the intersected shape have a subsurface integrator?
 	inline bool hasSubsurface() const;
 
+	/// Does the intersected shape have a subsurface integrator that supports sampling Li?
+	inline bool hasLiSubsurface() const;
+
 	/// Does the surface mark a transition between two media?
 	inline bool isMediumTransition() const;
 
@@ -113,7 +116,25 @@ public:
 	 * shape is actually a subsurface integrator.
 	 */
 	inline Spectrum LoSub(const Scene *scene, Sampler *sampler,
-			const Vector &d, int depth=0) const;
+			const Vector &d, const Spectrum &throughput, int depth=0) const;
+
+	/**
+	 * \brief Returns incoming radiance from a subsurface integrator, into 
+	 * direction d.
+	 *
+	 * \remark The difference between \c LoSub and \c LiSub are that this 
+	 * latter should be called after handling the surface bsdf of the 
+	 * medium. It is therefore more precise by taking the boundary 
+	 * explicitly into account. The throughput thus far is required for 
+	 * proper Russian Roulette termination on internal reflections.
+	 *
+	 * \remark The direction should point away from the subsurface medium.
+	 *
+	 * \remark Should only be called if the intersected
+	 * shape is actually a subsurface integrator.
+	 */
+	inline Spectrum LiSub(const Scene *scene, Sampler *sampler,
+			const Vector &d, const Spectrum &throughput, int &splits, int depth) const;
 
 	/// Computes texture coordinate partials
 	void computePartials(const RayDifferential &ray);
@@ -124,6 +145,11 @@ public:
 	/// Calls the suitable implementation of \ref Shape::getNormalDerivative()
 	inline void getNormalDerivative(Vector &dndu, Vector &dndv,
 		bool shadingFrame = true) const;
+
+	/// Compare the t values of two intersections
+	inline bool operator<(const Intersection &i) const {
+		return t < i.t;
+	}
 
 	/// Return a string representation
 	std::string toString() const;
@@ -266,6 +292,9 @@ public:
 	 * \remark This function is not exposed in Python
 	 */
 	virtual bool rayIntersect(const Ray &ray, Float mint, Float maxt) const;
+
+	virtual void rayIntersectFully(const Ray &ray, Float mint, Float maxt,
+			std::vector<Intersection> &its) const;
 
 	/**
 	 * \brief Given that an intersection has been found, create a

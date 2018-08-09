@@ -38,7 +38,8 @@ static StatsCounter avgPathLength("Path tracer", "Average path length", EAverage
  *	   }
  *	   \parameter{rrForcedDepth}{\Integer}{Specifies the minimum path depth, after
  *	      which the implementation will force the ``russian roulette'' path
- *	      termination probabilities to be less than unity. \default{\code{100}}
+ *	      termination probabilities to be less than unity. A value of \code{-1}
+ *	      corresponds to $\infty$.\default{\code{-1}}
  *	   }
  *	   \parameter{rrTargetThroughput}{\Float}{The ``russian roulette'' path
  *	      termination criterion will try to keep the path weights at or
@@ -162,7 +163,7 @@ public:
 
 			/* Include radiance from a subsurface scattering model if requested */
 			if (its.hasSubsurface() && (rRec.type & RadianceQueryRecord::ESubsurfaceRadiance))
-				Li += throughput * its.LoSub(scene, rRec.sampler, -ray.d, rRec.depth);
+				Li += throughput * its.LoSub(scene, rRec.sampler, -ray.d, throughput, rRec.depth);
 
 			if ((rRec.depth >= m_maxDepth && m_maxDepth > 0)
 				|| (m_strictNormals && dot(ray.d, its.geoFrame.n)

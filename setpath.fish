@@ -6,7 +6,7 @@
 #    . setpath.fish
 #
 
-set -x MITSUBA_DIR (dirname (status -f))
+set -x MITSUBA_DIR (dirname (realpath (status -f)))
 
 if [ -n "$MITSUBA_PYVER" ]
 	set pyver $MITSUBA_PYVER

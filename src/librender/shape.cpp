@@ -71,9 +71,26 @@ void Shape::configure() {
 		addChild(bsdf);
 	}
 
-	if ((m_bsdf->getType() & BSDF::ENull) && (isEmitter() || isSensor() || hasSubsurface()))
+	if ((m_bsdf->getType() & BSDF::ENull) && (isEmitter() || isSensor()))
 		Log(EError, "Shape \"%s\" has an index-matched BSDF and an "
-			"emitter/sensor/subsurface attachment. This is not allowed!", getName().c_str());
+			"emitter/sensor attachment. This is not allowed!", getName().c_str());
+
+	/* If we have a null bsdf and a subsurface scattering model, then this 
+	 * only 'somewhat' makes sense for an index-matched 
+	 * DirectSamplingSubsurface. The problem with using an ENull BSDF is 
+	 * that shadow rays aren't blocked, though. So even for a trivial 
+	 * index-matched boundary, a full blown smooth dielectric BSDF is 
+	 * needed (with intIOR == extIOR). */
+	if ((m_bsdf->getType() & BSDF::ENull) && hasSubsurface())
+		Log(EError, "Shape \"%s\" incorrectly has an index-matched 'null' "
+				"BSDF together with a subsurface attachment. If the "
+				"subsurface attachment cannot provide an incoming radiance "
+				"(i.e. no Li, only Lo), then this is certainly wrong. If the "
+				"subsurface attachment does support Li and you want to "
+				"couple the subsurface model to index-matched boundaries, "
+				"then you need to explicitly add an index-matched smooth "
+				"dielectrical BSDF (this is currently only tested for the "
+				"volpath integrator family).", getName().c_str());
 }
 
 void Shape::adjustTime(Intersection &its, Float time) const {
@@ -153,16 +170,20 @@ void Shape::addChild(const std::string &name, ConfigurableObject *child) {
 		m_sensor = sensor;
 	} else if (cClass->derivesFrom(MTS_CLASS(Subsurface))) {
 		Assert(m_subsurface == NULL);
+#if 0
 		if (m_interiorMedium != NULL)
 			Log(EError, "Shape \"%s\" has both an interior medium "
 				"and a subsurface scattering model -- please choose one or the other!", getName().c_str());
+#endif
 		m_subsurface = static_cast<Subsurface *>(child);
 	} else if (cClass->derivesFrom(MTS_CLASS(Medium))) {
 		if (name == "interior") {
 			Assert(m_interiorMedium == NULL || m_interiorMedium == child);
+#if 0
 			if (m_subsurface != NULL)
 				Log(EError, "Shape \"%s\" has both an interior medium "
 					"and a subsurface scattering model -- please choose one or the other!", getName().c_str());
+#endif
 			m_interiorMedium = static_cast<Medium *>(child);
 		} else if (name == "exterior") {
 			Assert(m_exteriorMedium == NULL || m_exteriorMedium == child);
@@ -200,6 +221,8 @@ bool Shape::rayIntersect(const Ray &ray, Float mint,
 		Float maxt, Float &t, void *temp) const { NotImplementedError("rayIntersect"); }
 bool Shape::rayIntersect(const Ray &ray, Float mint,
 		Float maxt) const { NotImplementedError("rayIntersect"); }
+void Shape::rayIntersectFully(const Ray &ray, Float mint, Float maxt,
+		std::vector<Intersection> &its) const { NotImplementedError("rayIntersectFully"); }
 
 void Shape::fillIntersectionRecord(const Ray &ray,
 		const void *temp, Intersection &its) const {

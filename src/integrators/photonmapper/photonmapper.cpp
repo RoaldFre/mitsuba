@@ -436,7 +436,7 @@ public:
 
 		/* Include radiance from a subsurface scattering model if requested */
 		if (its.hasSubsurface() && (rRec.type & RadianceQueryRecord::ESubsurfaceRadiance))
-			LiSurf += its.LoSub(scene, rRec.sampler, -ray.d, rRec.depth);
+			LiSurf += its.LoSub(scene, rRec.sampler, -ray.d, Spectrum(1.0f), rRec.depth);
 
 		const BSDF *bsdf = its.getBSDF(ray);
 

@@ -52,8 +52,11 @@ namespace warp {
 	extern MTS_EXPORT_CORE Vector squareToCosineHemisphere(const Point2 &sample);
 
 	/// Density of \ref squareToCosineHemisphere() with respect to solid angles
-	extern MTS_EXPORT_CORE inline Float squareToCosineHemispherePdf(const Vector &d)
-		{ return INV_PI * Frame::cosTheta(d); }
+	extern MTS_EXPORT_CORE inline Float squareToCosineHemispherePdf(const Vector &d) {
+		if (Frame::cosTheta <= 0)
+			return 0;
+		return INV_PI * Frame::cosTheta(d);
+	}
 
 	/**
 	 * \brief Uniformly sample a vector that lies within a given
@@ -107,8 +110,14 @@ namespace warp {
 	 */
 	extern MTS_EXPORT_CORE Point2 squareToStdNormal(const Point2 &sample);
 
+	/// Density of a 1D standard normal distribution per unit length
+	extern MTS_EXPORT_CORE Float lineToStdNormalPdf(Float pos);
+
 	/// Density of \ref squareToStdNormal per unit area
 	extern MTS_EXPORT_CORE Float squareToStdNormalPdf(const Point2 &pos);
+
+	/// Density of a 3D standard normal distribution per unit volume
+	extern MTS_EXPORT_CORE Float cubeToStdNormalPdf(const Point3 &pos);
 
 	/// Warp a uniformly distributed square sample to a 2D tent distribution
 	extern MTS_EXPORT_CORE Point2 squareToTent(const Point2 &sample);
@@ -121,6 +130,17 @@ namespace warp {
 
 	//! @}
 	// =============================================================
+
+
+
+	extern MTS_EXPORT_CORE Float uniformToTruncatedExponential(Float lambda,
+		Float lo, Float hi, Float u, Float *pdf = NULL);
+	/**
+	 * Returns the pdf for the sample z.
+	 */
+	extern MTS_EXPORT_CORE Float uniformToTruncatedExponentialPdf(Float lambda,
+		Float lo, Float hi, Float z);
+
 };
 
 MTS_NAMESPACE_END

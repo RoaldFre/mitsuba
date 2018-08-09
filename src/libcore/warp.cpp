@@ -130,14 +130,23 @@ Point2 uniformDiskToSquareConcentric(const Point2 &p) {
 
 Point2 squareToStdNormal(const Point2 &sample) {
 	Float r   = std::sqrt(-2 * math::fastlog(1-sample.x)),
-		  phi = 2 * M_PI * sample.y;
+	      phi = 2 * M_PI * sample.y;
 	Point2 result;
 	math::sincos(phi, &result.y, &result.x);
 	return result * r;
 }
 
+Float lineToStdNormalPdf(Float pos) {
+	return INV_SQRT_TWOPI * math::fastexp(-pos*pos/2.0f);
+}
+
 Float squareToStdNormalPdf(const Point2 &pos) {
 	return INV_TWOPI * math::fastexp(-(pos.x*pos.x + pos.y*pos.y)/2.0f);
+}
+
+Float cubeToStdNormalPdf(const Point3 &pos) {
+	return INV_SQRT_TWOPI_CUBED * math::fastexp(
+			-(pos.x*pos.x + pos.y*pos.y + pos.z*pos.z)/2.0f);
 }
 
 static Float intervalToTent(Float sample) {
@@ -174,6 +183,107 @@ Float intervalToNonuniformTent(Float a, Float b, Float c, Float sample) {
 
 	return b + factor * (1-math::safe_sqrt(sample));
 }
+
+static void uniformToTruncatedExponentialImpl(Float original_lambda,
+		Float original_lo, Float original_hi, const Float *u_, Float &original_x, Float *pdf) {
+	Float u, x;
+	if (u_) {
+		u = *u_;
+		SAssert(u >= 0 && u <= 1);
+	} else {
+		u = 0.0f/0.0f;
+	}
+	Float thePdf, lambda, lo, hi;
+	if (original_lambda > 0) {
+		lambda = original_lambda;
+		lo = original_lo;
+		hi = original_hi;
+		x = original_x;
+	} else {
+		lambda = -original_lambda; // make it positive
+		lo = -original_hi;
+		hi = -original_lo;
+		x = -original_x;
+	}
+
+	if ((hi - lo)*lambda < Epsilon) {
+		/* Expansion in small lambda, up to second order. Expansion is 
+		 * neccesary to avoid catastrophic cancellation. */
+		Float d = hi - lo;
+		Float d2 = d*d;
+		Float d3 = d*d2;
+		if (u_) {
+			/* The expanded x is still guaranteed to stay within bounds, but 
+			 * clamp to protect against roundoff */
+			x = math::clamp(lo + d*u - 0.5f*u*(u-1.f)*d2*lambda
+					+ 1.f/6.f*(2.f*u-1.f)*(u-1.f)*u*d3*lambda*lambda, lo, hi);
+		}
+		/* The expanded thePdf is still guaranteed to be >= 0 */
+		thePdf = (1 + 0.5*(2*x - lo - hi) * lambda
+				+ 1./12.*(math::square(hi) + math::square(lo)
+						+ 4*lo*hi
+						+ 6*x*(x - lo - hi))
+								* lambda*lambda) / d;
+	} else if (lambda*hi > LOG_REDUCED_PRECISION / 2) {
+		/* Expansion in large lambda */
+
+		// TODO: code below implicitly assumes that (hi-lo)*lambda is LARGE!!
+		// if that is not the case, then the warning below could be triggered... FIXME!
+
+		if (u_) {
+			x = math::clamp(hi + std::log(u) / lambda,
+					lo, hi);
+			if (x < lo) {
+				/* *INSANELY* unlikely (pdf below would probably cut off to 
+				 * zero anyway, but universe would die of heat death first) */
+				SLog(EWarn, "Woah! Universe should have encountered heat death, "
+						"or code is bugged -- x: %f < lo %f", x, lo);
+				x = lo;
+			}
+		}
+		thePdf = lambda * exp(lambda*(x - hi));
+		if (!std::isfinite(thePdf) || thePdf < 0 || (u_ && thePdf <= 0))
+			SLog(EWarn, "Something fishy happened, pdf %f, x: %f (min %f max %f lambda %f)", thePdf, x, lo, hi, lambda);
+	} else {
+		if (u_) {
+			x = math::clamp(std::log((1.f-u)*math::fastexp(lo*lambda) + u*math::fastexp(hi*lambda)) / lambda,
+					lo, hi);
+		}
+		thePdf = lambda/(exp(hi*lambda) - exp(lo*lambda)) * exp(lambda * x);
+	}
+
+	if (thePdf < 0) {
+		SLog(EWarn, "Got negative pdf! %e", thePdf);
+		thePdf = 0;
+	}
+	if (pdf)
+		*pdf = thePdf;
+
+	if (u_) {
+		if (original_lambda < 0)
+			original_x = -x;
+		else
+			original_x = x;
+	}
+
+	SAssert(original_lo <= original_x);
+	SAssert(original_x <= original_hi);
+}
+
+Float uniformToTruncatedExponential(Float lambda,
+		Float lo, Float hi, Float u, Float *pdf) {
+	Float z;
+	uniformToTruncatedExponentialImpl(lambda, lo, hi, &u, z, pdf);
+	return z;
+}
+
+Float uniformToTruncatedExponentialPdf(Float lambda,
+		Float lo, Float hi, Float z) {
+	Float pdf;
+	uniformToTruncatedExponentialImpl(lambda, lo, hi, NULL, z, &pdf);
+	return pdf;
+}
+
 
 };
 

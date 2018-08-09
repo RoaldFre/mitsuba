@@ -70,6 +70,12 @@ MTS_NAMESPACE_BEGIN
  *         specular\showbreak Transmittance}{\Spectrum\Or\Texture}{Optional
  *         factor that can be used to modulate the specular reflection/transmission component. Note
  *         that for physical realism, this parameter should never be touched. \default{1.0}}
+ *     \parameter{noExternalReflection}{\Boolean}{
+ *         If set to \code{true}, then reflections towards the side with 
+ *         the lower IOR will be ignored. \default{\code{false}}}}
+ *     \parameter{noInternalReflection}{\Boolean}{
+ *         If set to \code{true}, then reflections towards the side with 
+ *         the higher IOR will be ignored. \default{\code{false}}}}
  * }\vspace{4mm}
  *
  * This plugin implements a realistic microfacet scattering model for rendering
@@ -185,6 +191,8 @@ public:
 			props.getSpectrum("specularReflectance", Spectrum(1.0f)));
 		m_specularTransmittance = new ConstantSpectrumTexture(
 			props.getSpectrum("specularTransmittance", Spectrum(1.0f)));
+		m_noExternalReflection = props.getBoolean("noExternalReflection", false);
+		m_noInternalReflection = props.getBoolean("noInternalReflection", false);
 
 		/* Specifies the internal index of refraction at the interface */
 		Float intIOR = lookupIOR(props, "intIOR", "bk7");
@@ -218,6 +226,8 @@ public:
 		m_alphaV = static_cast<Texture *>(manager->getInstance(stream));
 		m_specularReflectance = static_cast<Texture *>(manager->getInstance(stream));
 		m_specularTransmittance = static_cast<Texture *>(manager->getInstance(stream));
+		m_noExternalReflection = stream->readBool();
+		m_noInternalReflection = stream->readBool();
 		m_eta = stream->readFloat();
 		m_invEta = 1 / m_eta;
 
@@ -233,6 +243,8 @@ public:
 		manager->serialize(stream, m_alphaV.get());
 		manager->serialize(stream, m_specularReflectance.get());
 		manager->serialize(stream, m_specularTransmittance.get());
+		stream->writeBool(m_noExternalReflection);
+		stream->writeBool(m_noInternalReflection);
 		stream->writeFloat(m_eta);
 	}
 
@@ -322,6 +334,17 @@ public:
 		const Float G = distr.G(bRec.wi, bRec.wo, H);
 
 		if (reflect) {
+			Float cosTheta = Frame::cosTheta(bRec.wi);
+			if (m_eta < 1)
+				cosTheta = -cosTheta;
+			if (m_noExternalReflection) {
+				if (cosTheta > 0) // reflection towards the side with lower IOR
+					return Spectrum(0.0f);
+			}
+			if (m_noInternalReflection) {
+				if (cosTheta < 0) // reflection towards the side with higher IOR
+					return Spectrum(0.0f);
+			}
 			/* Calculate the total amount of reflection */
 			Float value = F * D * G /
 				(4.0f * std::abs(Frame::cosTheta(bRec.wi)));
@@ -478,6 +501,18 @@ public:
 			if (Frame::cosTheta(bRec.wi) * Frame::cosTheta(bRec.wo) <= 0)
 				return Spectrum(0.0f);
 
+			Float cosTheta = Frame::cosTheta(bRec.wi);
+			if (m_eta < 1)
+				cosTheta = -cosTheta;
+			if (m_noExternalReflection) {
+				if (cosTheta > 0) // reflection towards the side with lower IOR
+					return Spectrum(0.0f);
+			}
+			if (m_noInternalReflection) {
+				if (cosTheta < 0) // reflection towards the side with higher IOR
+					return Spectrum(0.0f);
+			}
+
 			weight *= m_specularReflectance->eval(bRec.its);
 		} else {
 			if (cosThetaT == 0)
@@ -573,6 +608,18 @@ public:
 			if (Frame::cosTheta(bRec.wi) * Frame::cosTheta(bRec.wo) <= 0)
 				return Spectrum(0.0f);
 
+			Float cosTheta = Frame::cosTheta(bRec.wi);
+			if (m_eta < 1)
+				cosTheta = -cosTheta;
+			if (m_noExternalReflection) {
+				if (cosTheta > 0) // reflection towards the side with lower IOR
+					return Spectrum(0.0f);
+			}
+			if (m_noInternalReflection) {
+				if (cosTheta < 0) // reflection towards the side with higher IOR
+					return Spectrum(0.0f);
+			}
+
 			weight *= m_specularReflectance->eval(bRec.its);
 
 			/* Jacobian of the half-direction mapping */
@@ -667,6 +714,8 @@ private:
 	ref<Texture> m_alphaU, m_alphaV;
 	Float m_eta, m_invEta;
 	bool m_sampleVisible;
+	bool m_noExternalReflection;
+	bool m_noInternalReflection;
 };
 
 /* Fake glass shader -- it is really hopeless to visualize

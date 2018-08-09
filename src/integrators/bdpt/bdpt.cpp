@@ -48,7 +48,8 @@ MTS_NAMESPACE_BEGIN
  *	   }
  *	   \parameter{rrForcedDepth}{\Integer}{Specifies the minimum path depth, after
  *	      which the implementation will force the ``russian roulette'' path
- *	      termination probabilities to be less than unity. \default{\code{100}}
+ *	      termination probabilities to be less than unity. A value of \code{-1}
+ *	      corresponds to $\infty$.\default{\code{-1}}
  *	   }
  *	   \parameter{rrTargetThroughput}{\Float}{The ``russian roulette'' path
  *	      termination criterion will try to keep the path weights at or
@@ -165,7 +166,7 @@ public:
 		if (m_config.maxDepth <= 0 && m_config.maxDepth != -1)
 			Log(EError, "'maxDepth' must be set to -1 (infinite) or a value greater than zero!");
 
-		if (m_config.maxDepth <= 0 && !m_config.rr.enabled())
+		if (m_config.maxDepth <= 0 && !m_config.rr.rouletteEnabled())
 			Log(EError, "Disabling russian roulette and having unlimited path length are mutually exclusive!");
 	}
 

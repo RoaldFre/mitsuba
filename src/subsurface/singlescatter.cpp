@@ -1579,7 +1579,7 @@ public:
 	//---------------- End set of functions for single scattering --------------------
 
 	Spectrum Lo(const Scene *scene, Sampler *sampler, const Intersection &its,
-				const Vector &d, int depth) const {
+				const Vector &d, const Spectrum &through, int depth) const {
 		//---- Initialize intergator and BSDF stuff from the first intersection seen.
 		if (!m_integrator) {
 			LockGuard lock(mutex);
