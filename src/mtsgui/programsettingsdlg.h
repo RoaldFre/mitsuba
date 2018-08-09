@@ -139,13 +139,14 @@ public:
 
     void setBlockSize(int size) {
         switch (size) {
-            case 2: ui->blockSizeBox->setCurrentIndex(0); break;
-            case 4: ui->blockSizeBox->setCurrentIndex(1); break;
-            case 8: ui->blockSizeBox->setCurrentIndex(2); break;
-            case 16: ui->blockSizeBox->setCurrentIndex(3); break;
-            case 32: ui->blockSizeBox->setCurrentIndex(4); break;
-            case 64: ui->blockSizeBox->setCurrentIndex(5); break;
-            case 128: ui->blockSizeBox->setCurrentIndex(6); break;
+            case 1: ui->blockSizeBox->setCurrentIndex(0); break;
+            case 2: ui->blockSizeBox->setCurrentIndex(1); break;
+            case 4: ui->blockSizeBox->setCurrentIndex(2); break;
+            case 8: ui->blockSizeBox->setCurrentIndex(3); break;
+            case 16: ui->blockSizeBox->setCurrentIndex(4); break;
+            case 32: ui->blockSizeBox->setCurrentIndex(5); break;
+            case 64: ui->blockSizeBox->setCurrentIndex(6); break;
+            case 128: ui->blockSizeBox->setCurrentIndex(7); break;
             default:
                 SLog(EError, "Unknown block size!");
         }
@@ -153,13 +154,14 @@ public:
 
     inline int getBlockSize() const {
         switch (ui->blockSizeBox->currentIndex()) {
-            case 0: return 2;
-            case 1: return 4;
-            case 2: return 8;
-            case 3: return 16;
-            case 4: return 32;
-            case 5: return 64;
-            case 6: return 128;
+            case 0: return 1;
+            case 1: return 2;
+            case 2: return 4;
+            case 3: return 8;
+            case 4: return 16;
+            case 5: return 32;
+            case 6: return 64;
+            case 7: return 128;
             default:
                 SLog(EError, "Unknown block size!");
                 return 0;

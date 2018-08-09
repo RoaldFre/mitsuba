@@ -122,6 +122,11 @@ Only applies to some integrators. </string>
          </property>
          <item>
           <property name="text">
+           <string>1x1</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
            <string>2x2</string>
           </property>
          </item>

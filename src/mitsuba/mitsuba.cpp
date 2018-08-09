@@ -234,8 +234,8 @@ int mitsuba_app(int argc, char **argv) {
                     blockSize = strtol(optarg, &end_ptr, 10);
                     if (*end_ptr != '\0')
                         SLog(EError, "Could not parse the block size!");
-                    if (blockSize < 2 || blockSize > 128)
-                        SLog(EError, "Invalid block size (should be in the range 2-128)");
+                    if (blockSize < 1 || blockSize > 128)
+                        SLog(EError, "Invalid block size (should be in the range 1-128)");
                     break;
                 case 'z':
                     progressBars = false;
