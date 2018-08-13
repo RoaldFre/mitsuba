@@ -646,6 +646,11 @@ Spectrum Scene::evalTransmittance(const Point &p1, bool p1OnSurface, const Point
         if (!surface || transmittance.isZero())
             break;
 
+       /* SSS models are assumed to be opaque (even when they have a null 
+        * BSDF */
+       if (its.hasSubsurface())
+           return Spectrum(0.0f);
+
         const BSDF *bsdf = its.getBSDF();
 
         its.p = ray.o;
@@ -788,6 +793,11 @@ Spectrum Scene::evalTransmittanceAll(const Point &p1, bool p1OnSurface, const Po
 
         if (!surface || transmittance.isZero())
             break;
+
+       /* SSS models are assumed to be opaque (even when they have a null 
+        * BSDF */
+       if (its.hasSubsurface())
+           return Spectrum(0.0f);
 
         const BSDF *bsdf = its.getBSDF();
 
