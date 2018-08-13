@@ -37,7 +37,7 @@ MTS_NAMESPACE_BEGIN
  * 'half-infinite medium, searchlight-type' test scenes, for instance.
  * Set to false when using adaptive integrator, as that is currently broken
  * otherwise... (TODO) */
-#define MTS_DSS_USE_RADIANCE_SOURCES false
+#define MTS_DSS_USE_RADIANCE_SOURCES true
 
 
 static StatsCounter avgNumSplits("Direct Sampling Subsurface",
