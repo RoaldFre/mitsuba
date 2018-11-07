@@ -83,8 +83,16 @@ public:
         /* Maximum number of samples to take (relative to the number of pixel samples
            that were configured in the sampler). The sample collection
            will stop after this many samples even if the variance is still
-           too high. A negative value will be interpreted as infinity. */
+           too high. A negative value will be interpreted as infinity. A 
+           value of 1 disables the adaptivity. */
         m_maxSampleFactor = props.getInteger("maxSampleFactor", 32);
+        if (m_maxSampleFactor == 1) {
+            Log(EInfo, "maxSampleFactor was set to unity, so adaptive sampling is disabled.");
+        } else if (m_maxSampleFactor < 0) {
+            Log(EInfo, "maxSampleFactor was set to a negative value, interpreting as infinity.");
+        } else if (m_maxSampleFactor == 0) {
+            Log(EError, "maxSampleFactor cannot be equal to zero!");
+        }
         /* Required P-value to accept a sample. */
         m_pValue = props.getFloat("pValue", 0.05f);
         /* Number of batches for the samples. The batch with the highest 
@@ -163,40 +171,46 @@ public:
         Float timeSample = 0.5f;
         RadianceQueryRecord rRec(scene, sampler);
 
-        /* Estimate the overall luminance on the image plane */
-        Log (EInfo, "Estimating the overall luminance on the image plane...");
-        ProgressReporter rep("Estimating luminance", nSamples, NULL);
-        VarianceFunctor luminance;
-        for (int i=0; i<nSamples; ++i) {
-            sampler->generate(Point2i(0));
+        if (m_maxSampleFactor != 1) { // If adaptivity is requested
+            /* Estimate the overall luminance on the image plane */
+            Log (EInfo, "Estimating the overall luminance on the image plane...");
+            ProgressReporter rep("Estimating luminance", nSamples, NULL);
+            VarianceFunctor luminance;
+            for (int i=0; i<nSamples; ++i) {
+                sampler->generate(Point2i(0));
 
-            rRec.newQuery(RadianceQueryRecord::ERadiance, sensor->getMedium());
-            rRec.extra = RadianceQueryRecord::EAdaptiveQuery;
+                rRec.newQuery(RadianceQueryRecord::ERadiance, sensor->getMedium());
+                rRec.extra = RadianceQueryRecord::EAdaptiveQuery;
 
-            Point2 samplePos(rRec.nextSample2D());
-            samplePos.x *= filmSize.x;
-            samplePos.y *= filmSize.y;
+                Point2 samplePos(rRec.nextSample2D());
+                samplePos.x *= filmSize.x;
+                samplePos.y *= filmSize.y;
 
-            if (needsApertureSample)
-                apertureSample = rRec.nextSample2D();
-            if (needsTimeSample)
-                timeSample = rRec.nextSample1D();
+                if (needsApertureSample)
+                    apertureSample = rRec.nextSample2D();
+                if (needsTimeSample)
+                    timeSample = rRec.nextSample1D();
 
-            RayDifferential eyeRay;
-            Spectrum sampleValue = sensor->sampleRay(
-                eyeRay, samplePos, apertureSample, timeSample);
+                RayDifferential eyeRay;
+                Spectrum sampleValue = sensor->sampleRay(
+                    eyeRay, samplePos, apertureSample, timeSample);
 
-            sampleValue *= m_subIntegrator->Li(eyeRay, rRec);
-            luminance.update(sampleValue.getLuminance());
-            rep.update(i);
+                sampleValue *= m_subIntegrator->Li(eyeRay, rRec);
+                luminance.update(sampleValue.getLuminance());
+                rep.update(i);
+            }
+
+            m_averageLuminance = luminance.mean();
+
+            boost::math::normal dist(0, 1);
+            m_quantile = (Float) boost::math::quantile(dist, 1-m_pValue/2);
+            Log(EInfo, "Configuring for a %.1f%% confidence interval, quantile=%f, avg. luminance=%e +- %e, num. batches=%d",
+                (1-m_pValue)*100, m_quantile, m_averageLuminance, luminance.errorOfMean(), m_numBatches);
+        } else {
+            m_averageLuminance = std::numeric_limits<Float>::quiet_NaN();
+            m_quantile         = std::numeric_limits<Float>::quiet_NaN();
         }
 
-        m_averageLuminance = luminance.mean();
-
-        boost::math::normal dist(0, 1);
-        m_quantile = (Float) boost::math::quantile(dist, 1-m_pValue/2);
-        Log(EInfo, "Configuring for a %.1f%% confidence interval, quantile=%f, avg. luminance=%e +- %e, num. batches=%d",
-            (1-m_pValue)*100, m_quantile, m_averageLuminance, luminance.errorOfMean(), m_numBatches);
         return true;
     }
 
