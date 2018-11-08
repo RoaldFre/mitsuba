@@ -409,7 +409,7 @@ void Scene::initializeBidirectional() {
         aabb.expandBy(emitter->getAABB());
         if (!(emitter->getType() & Emitter::EDeltaPosition))
             m_degenerateEmitters = false;
-}
+    }
     m_aabb = aabb;
 }
 
