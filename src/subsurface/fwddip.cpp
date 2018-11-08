@@ -157,7 +157,7 @@ public:
             return false;
         Float phi = sampler->next1D() * TWO_PI;
         Float sinPhi,cosPhi;
-		math::sincos(phi, &sinPhi, &cosPhi);
+        math::sincos(phi, &sinPhi, &cosPhi);
         Float r = 1 - sqrt(1 - sampler->next1D());
         x[0] = sinPhi * r / p;
         x[1] = cosPhi * r / p;
@@ -630,6 +630,8 @@ public:
             m_dipoleMode = FwdScat::ERealAndVirt;
         }
 
+        m_winklerCorrection = props.getBoolean("winklerCorrection", false);
+
         m_useEffectiveBRDF = props.getBoolean("useEffectiveBRDF", false);
 
         lookupMaterial(props, m_sigmaS, m_sigmaA, m_g, &m_eta);
@@ -1060,12 +1062,14 @@ public:
             // Effective 1D problem as far as spectral channels are concerned
             m_fwdScat.resize(1);
             m_fwdScat[0] = new FwdScat(
-                    m_g.min(), m_sigmaS.min(), m_sigmaA.min(), m_eta);
+                    m_g.min(), m_sigmaS.min(), m_sigmaA.min(), m_eta, 
+                    m_winklerCorrection);
         } else {
             m_fwdScat.resize(SPECTRUM_SAMPLES);
             for (int i = 0; i < SPECTRUM_SAMPLES; i++)
                 m_fwdScat[i] = new FwdScat(
-                        m_g[i], m_sigmaS[i], m_sigmaA[i], m_eta);
+                        m_g[i], m_sigmaS[i], m_sigmaA[i], m_eta,
+                        m_winklerCorrection);
         }
 
         Spectrum sigmaSPrime = m_sigmaS * (Spectrum(1.0f) - m_g);
@@ -1185,6 +1189,7 @@ private:
     FwdScat::ZvMode m_zvMode;
     FwdScat::DipoleMode m_dipoleMode;
     bool m_useEffectiveBRDF;
+    bool m_winklerCorrection;
     // Initialized by configure():
     ref_vector<FwdScat> m_fwdScat;
 
