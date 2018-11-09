@@ -668,6 +668,7 @@ public:
         m_zvMode = static_cast<FwdScat::ZvMode>(stream->readInt());
         m_dipoleMode = static_cast<FwdScat::DipoleMode>(stream->readInt());
         m_useEffectiveBRDF = stream->readBool();
+        m_winklerCorrection = stream->readBool();
         configure();
     }
 
@@ -682,6 +683,7 @@ public:
         stream->writeInt(m_zvMode);
         stream->writeInt(m_dipoleMode);
         stream->writeBool(m_useEffectiveBRDF);
+        stream->writeBool(m_winklerCorrection);
     }
 
 
