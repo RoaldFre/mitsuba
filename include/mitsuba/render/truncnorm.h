@@ -33,6 +33,7 @@ inline Float truncnormPdf(const Float _mean,
     double z(_z);
 
     SAssert(lo <= hi);
+    SAssert(sd >= 0);
 
     if (z < lo || z > hi)
         return 0.0f;
@@ -89,7 +90,9 @@ inline Float truncnormPdf(const Float _mean,
         pdf = 2.0*exp(-absoluteExpArgument)
                 / ((sqrt(TWO_PI) * sd) * erfDiff);
         if (!std::isfinite(pdf))
-            SLog(EWarn, "full pdf %e, %e %e %e %e", pdf, c_stdlo, c_stdhi, c_stdz, sd);
+            SLog(EWarn, "full pdf %e: stdlo:%e stdhi:%e stdz:%e sd:%e | m:%e lo:%e hi:%e z:%e",
+                    pdf, c_stdlo, c_stdhi, c_stdz, sd,
+                    mean, lo, hi, z);
     } else {
         /* Our bounds are *waaaay* to the left of the mean, so the exponential
          * and erfs can potentially underflow. Expand the erfs and cancel
@@ -99,13 +102,28 @@ inline Float truncnormPdf(const Float _mean,
         SAssert(c_stdlo < 0);
         SAssert(c_stdhi < 0);
         SAssert(c_stdz < 0);
-        pdf = exp(0.5*(c_stdhi*c_stdhi - c_stdz*c_stdz)) * c_stdlo * c_stdhi
-                / (-c_stdlo + c_stdhi*exp(0.5*(c_stdhi*c_stdhi - c_stdlo*c_stdlo)));
+        // Expansion up to 7th order in |c_stdhi| and |c_stdlo|
+        double c_stdlo2 = c_stdlo*c_stdlo;     double c_stdhi2 = c_stdhi*c_stdhi;
+        double c_stdlo4 = c_stdlo2*c_stdlo2;   double c_stdhi4 = c_stdhi2*c_stdhi2;
+        double c_stdlo6 = c_stdlo4*c_stdlo2;   double c_stdhi6 = c_stdhi4*c_stdhi2;
+        double c_stdlo7 = c_stdlo6*c_stdlo;    double c_stdhi7 = c_stdhi6*c_stdhi;
+
+        double pdfDenom = (c_stdhi6 - c_stdhi4 + 3*c_stdhi2 - 15); /* assuming c_stdlo = -infinity */
+        if (std::isfinite(c_stdlo7)) /* add seperately only when finite to avoid NaNs */
+              pdfDenom += (c_stdlo6 - c_stdlo4 + 3*c_stdlo2 - 15) /* correction for c_stdlo != -infinity */
+                            * c_stdhi7/c_stdlo7 * exp(0.5*(c_stdhi*c_stdhi - c_stdlo*c_stdlo));
+        pdf = -c_stdhi7 * exp(0.5*(c_stdhi*c_stdhi - c_stdz*c_stdz)) / pdfDenom;
         pdf /= sd; // transform back to non-standard setting
-        if (!std::isfinite(pdf))
-            SLog(EWarn, "expanded pdf %e, %e %e %e %e %e", pdf, c_stdlo, c_stdhi, c_stdz, sd);
+        SAssert(!(pdf < 0));
+        if (!std::isfinite(pdf)) {
+            SLog(EWarn, "expanded pdf %e: stdlo:%e stdhi:%e stdz:%e sd:%e | m:%e lo:%e hi:%e z:%e",
+                    pdf, c_stdlo, c_stdhi, c_stdz, sd,
+                    mean, lo, hi, z);
+            return 0;
+        }
     }
-    //SAssert(std::isfinite(pdf));
+    SAssert(std::isfinite(pdf));
+    SAssert(pdf >= 0);
     return pdf;
 }
 
@@ -300,6 +318,10 @@ inline Float truncnorm(const Float mean,
             const Float high,
             Sampler *sampler
             ) {
+
+    SAssert(low <= high);
+    SAssert(sd >= 0);
+
     if (low == high)
         return low;
 
@@ -314,8 +336,6 @@ inline Float truncnorm(const Float mean,
     if (std::isinf(sd)) {
         return low + sampler->next1D() * (high - low);
     }
-
-    SAssert(sd > 0);
 
   // Init Useful Values
   Float draw = 0;
