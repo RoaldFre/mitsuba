@@ -687,8 +687,8 @@ static void getExtremalPlaneValues(const Vector &u, const Vector &v,
     for (const Shape *shape : shapes) {
         aabb.expandBy(shape->getAABB());
     }
-    xLo = Vector2(-std::numeric_limits<Float>::infinity());
-    xHi = Vector2( std::numeric_limits<Float>::infinity());
+    xLo = Vector2( std::numeric_limits<Float>::infinity());
+    xHi = Vector2(-std::numeric_limits<Float>::infinity());
     for (int i = 0; i < 8; i++) {
         Vector corner = aabb.getCorner(i) - p;
         xLo.x = std::min(xLo.x, dot(u, corner));
