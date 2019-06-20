@@ -88,6 +88,11 @@ public:
             const Vector &R, Float s, TangentPlaneMode tangentMode,
             bool useEffectiveBRDF) const;
 
+    Float evalMonopole(Vector u0, Vector uL, Vector R, Float length) const;
+
+    Float evalPlaneSource(Vector u0, Vector uL,
+            Vector n, Float Rz, Float length) const;
+
 protected:
     void calcValues(double length, double &C, double &D, double &E, double &F) const;
     void calcValues2(double length, double &C, double &D, double &E, double &F,
@@ -95,11 +100,6 @@ protected:
 
     double absorptionAndNormalizationConstant(Float theLength) const;
     double absorptionAndNormalizationConstant2(Float theLength) const;
-
-    Float evalMonopole(Vector u0, Vector uL, Vector R, Float length) const;
-
-    Float evalPlaneSource(Vector u0, Vector uL,
-            Vector n, Float Rz, Float length) const;
 
     bool getVirtualDipoleSource(
             Normal n0, Vector u0,
