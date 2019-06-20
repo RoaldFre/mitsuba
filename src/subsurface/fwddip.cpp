@@ -20,6 +20,7 @@
 #include <mitsuba/render/dss.h>
 #include <mitsuba/core/plugin.h>
 #include <mitsuba/core/warp.h>
+#include <gsl/gsl_sf_lambert.h>
 #include "../medium/materials.h"
 #include "fwdscat.h"
 #include "dipoleUtil.h"
@@ -120,7 +121,7 @@ protected:
 /* Higher than 1: confines pdf more so that its peak gets higher but we can
  * cut off too soon -- lower than 1; broader pdf, but we might be
  * undersampling the extreme peak then */
-#define P_SAFETY_FACTOR 1
+#define DEFAULT_P_SAFETY_FACTOR 1
 
 /**
  * \brief Sampler in the 2D plane perpendicular to the outgoing direction,
@@ -129,7 +130,7 @@ protected:
 class MTS_EXPORT_RENDER FwdDipSmallLengthSamplerPerpToDir : public TangentSampler2D {
 public:
     FwdDipSmallLengthSamplerPerpToDir(Spectrum sigma_s, Spectrum g,
-            Float pSafetyFactor = P_SAFETY_FACTOR) :
+            Float pSafetyFactor = DEFAULT_P_SAFETY_FACTOR) :
                 m_p(pSafetyFactor * 0.5*sigma_s*(Spectrum(1.0f) - g)) {
         Assert(sigma_s.isFinite());
         Assert(g.isFinite());
@@ -189,19 +190,14 @@ protected:
 class MTS_EXPORT_RENDER FwdDipSmallLengthSamplerAlongDir : public TangentSampler2D {
 public:
     FwdDipSmallLengthSamplerAlongDir(Spectrum sigma_s, Spectrum g,
-            Float pSafetyFactor = P_SAFETY_FACTOR) :
-                m_p(pSafetyFactor * 0.5*sigma_s*(Spectrum(1.0f) - g)) {
+            Float pSafetyFactor = DEFAULT_P_SAFETY_FACTOR,
+            Float RpMax = 1.0f) :
+                m_p(pSafetyFactor * 0.5*sigma_s*(Spectrum(1.0f) - g)),
+                m_RpMax(RpMax) {
         Assert(sigma_s.isFinite());
         Assert(g.isFinite());
         Assert(m_p.isFinite());
     }
-
-    /* How much wider we make the sample area, to make sure we have covered
-     * the peak properly. */
-    const Float dMaxSafetyScale = 2;
-    /* Maximum length along the outgoing, queried radiance direction, in
-     * units of 1/p. */
-    const Float Rmax = 1;
 
     /**
      * \brief Sample a point x in the 2D plane.
@@ -218,15 +214,30 @@ public:
     virtual bool sample(int channel, Vector2 &x, Float cosTheta,
             const Vector2 &xLo, const Vector2 &xHi,
             Sampler *sampler, Float *thePdf = NULL) const {
+
+        // TODO: use xLo and xHi....
+
         Assert(channel>=0);
         Float p = m_p[channel];
         if (p == 0)
             return false;
 
         // We work in p=1
-        Float R = Rmax * sampler->next1D();
-        //Float R = Rmax * sqrt(sampler->next1D());
-        //Float R = Rmax * pow(sampler->next1D(),2./3.);
+        // MIS sampling of 1/sqrt(R) and 1/R
+        Float u = sampler->next1D();
+        Float R;
+        if (u > 0.5) {
+            u = 2*(u-0.5);
+            // sample according to 1/sqrt(R)
+            R = m_RpMax * (2 - u - 2*sqrt(1-u));
+        } else {
+            u = 2*u;
+            // sample according to 1/R
+            R = -Rmax * gsl_sf_lambert_W0(
+                    -exp((u-1)*Rmin/Rmax - u) * pow(Rmin/Rmax, 1.-u));
+            Assert(std::isfinite(R));
+            AssertWarn(R >= Rmin && R <= Rmax);
+        }
 
         Float stddev = dMaxSafetyScale * sqrt(R*R*R/6);
         Float d = stddev * warp::squareToStdNormal(sampler->next2D()).x;
@@ -247,14 +258,19 @@ public:
         Float p = m_p[channel];
         Float R = -x[0]*p; // displacement is backwards along the query point!
         Float d = x[1]*p;
-        if (p == 0 || R < 0 || R > Rmax)
+        if (p == 0 || R < 0 || R > m_RpMax)
             return 0;
 
         Float stddev = dMaxSafetyScale * sqrt(R*R*R/6);
         Float dPdf = warp::lineToStdNormalPdf(d / stddev) / stddev;
-        Float Rpdf = 1./Rmax;
-        //Float Rpdf = 2*R/(Rmax*Rmax);
-        //Float Rpdf = 1.5*sqrt(R / (Rmax*Rmax*Rmax));
+        Float Rpdf_invSqrtR = 1/sqrt(m_RpMax * R) - 1/m_RpMax;
+        Float Rpdf_invR = 0;
+        if (R >= Rmin && R < Rmax) {
+            Rpdf_invR = (Rmax - R) / (
+                    R * (Rmin + Rmax*(log(Rmax/Rmin) - 1)));
+            Assert(std::isfinite(Rpdf_invR) && Rpdf_invR >= 0);
+        }
+        Float Rpdf = 0.5 * (Rpdf_invSqrtR + Rpdf_invR);
         return Rpdf * dPdf * p*p;
     }
 
@@ -262,7 +278,21 @@ public:
 
 protected:
     virtual ~FwdDipSmallLengthSamplerAlongDir() { }
+
     const Spectrum m_p;
+
+    /* Maximum length along the outgoing, queried radiance direction, in
+     * units of 1/p -- i.e. the maximum component of R*p along the 
+     * direction. This is for sampling R according to 1/sqrt(R). */
+    const Float m_RpMax;
+
+    /* How much wider we make the sample area, to make sure we have covered
+     * the peak properly. */
+    const Float dMaxSafetyScale = 2;
+
+    /* Boundaries for sampling R according to 1/R (Rmin should be > 0) */
+    const Float Rmin = 1e-10;
+    const Float Rmax = 0.1;
 };
 
 inline IntersectionWeightFunc fwdDipSmallLengthWeightFunc(
