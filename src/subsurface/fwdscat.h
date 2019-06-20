@@ -68,7 +68,7 @@ public:
             bool useEffectiveBRDF = false,
             DipoleMode dipoleMode = ERealAndVirt) const;
 
-    /// Returns the pdf
+    /// Returns the sample weight
     Float sampleLengthDipole(
             const Vector &uL, const Vector &nL, const Vector &R,
             const Vector *u0, const Vector &n0,
@@ -132,6 +132,10 @@ protected:
     void implLengthShortLimitKnownU0(
             Vector R, Vector u0, Vector uL, Float &s, Sampler *sampler, Float *pdf) const;
     void implLengthShortLimitMargOverU0(
+            Vector R, Vector uL, Float &s, Sampler *sampler, Float *pdf) const;
+    void implLengthShortLimitMargOverU0_internal(
+            Vector R, Vector uL, Float &s, Sampler *sampler, Float *pdf, Float safetyFac) const;
+    void implLengthShortLimitMargOverU0_oldVersion(
             Vector R, Vector uL, Float &s, Sampler *sampler, Float *pdf) const;
 
     /// Returns the pdf

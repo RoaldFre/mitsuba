@@ -790,6 +790,7 @@ FINLINE Float FwdScat::pdfLengthShortLimit(
 FINLINE void FwdScat::implLengthShortLimit(
         Vector R, const Vector *u0, Vector uL, Float &s, Sampler *sampler, Float *pdf) const {
     if (u0 == NULL) {
+        //implLengthShortLimitMargOverU0_oldVersion(R, uL, s, sampler, pdf);
         implLengthShortLimitMargOverU0(R, uL, s, sampler, pdf);
     } else {
         implLengthShortLimitKnownU0(R, *u0, uL, s, sampler, pdf);
@@ -909,7 +910,7 @@ FINLINE void FwdScat::implLengthShortLimitKnownU0(
     }
 }
 
-FINLINE void FwdScat::implLengthShortLimitMargOverU0(
+FINLINE void FwdScat::implLengthShortLimitMargOverU0_oldVersion(
         Vector R, Vector uL, Float &s, Sampler *sampler, Float *pdf) const {
     // Working in p=1, transforming back at the end
     Float p = 0.5*sigma_s*mu;
@@ -995,7 +996,7 @@ FINLINE void FwdScat::implLengthShortLimitMargOverU0(
         var = invps_mean*invps_mean; // just some heuristic 'guess'
     }
 
-    const Float stddevSafetyFactor = 2.5;
+    const Float stddevSafetyFactor = 1;//2.5;
     Float stddev = stddevSafetyFactor * sqrt(var);
 
     Float invps;
@@ -1019,6 +1020,156 @@ FINLINE void FwdScat::implLengthShortLimitMargOverU0(
     }
 }
 
+FINLINE void FwdScat::implLengthShortLimitMargOverU0(
+        Vector R, Vector uL, Float &s, Sampler *sampler, Float *pdf) const {
+    const Float safetyFac = 3;
+    const Float safetyWeight = 0.3;
+    Float pdfOrig, pdfSafety;
+    if (sampler) {
+        if (sampler->next1D() > safetyWeight) {
+            implLengthShortLimitMargOverU0_internal(R, uL, s, sampler, &pdfSafety, safetyFac);
+            implLengthShortLimitMargOverU0_internal(R, uL, s, NULL,    &pdfOrig  , 1.0);
+        } else {
+            implLengthShortLimitMargOverU0_internal(R, uL, s, sampler, &pdfOrig  , 1.0);
+            implLengthShortLimitMargOverU0_internal(R, uL, s, NULL,    &pdfSafety, safetyFac);
+        }
+    } else {
+            implLengthShortLimitMargOverU0_internal(R, uL, s, NULL,    &pdfOrig  , 1.0);
+            implLengthShortLimitMargOverU0_internal(R, uL, s, NULL,    &pdfSafety, safetyFac);
+    }
+    if (pdf) {
+        *pdf = safetyWeight*pdfSafety + (1-safetyWeight)*pdfOrig;
+    }
+}
+FINLINE void FwdScat::implLengthShortLimitMargOverU0_internal(
+        Vector R, Vector uL, Float &s, Sampler *sampler, Float *pdf, Float safetyFac) const {
+    // Working in p=1, transforming back at the end
+    Float p = 0.5*sigma_s*mu;
+    Float lRl = R.length();
+    Float r = lRl * p;
+    Float r2 = r*r;
+    Float cosTheta = math::clamp(dot(R, uL) / lRl, (Float)-1, (Float)1);
+
+    /* TODO:
+     *
+     * (1) This is not very sensible for r > 1 (set this strategy's MIS
+     * weight to 0 then?)
+     *
+     * (2) The case r=0 can happen for an effective BRDF -> make dedicated 
+     * sampler 
+     */
+    //if (r == 0 || r > 1) {
+    if (r == 0) {
+        if (pdf) *pdf = 0;
+        if (sampler) s = 0;
+        return;
+    }
+
+    Float uniformBackupWeight;
+    Float t_mean = -1, t_stddev = -1;
+    do { /* construction to allow easy break out of code block (like a 'goto error') */
+        Float D = (25*cosTheta*(cosTheta + 1) - 25 - 30*r2)/225.0;
+        if (D <= 0) {
+            uniformBackupWeight = 1;
+            break;
+        }
+        Float t_mean25 = ((cosTheta + 1)/3.0 + sqrt(D)) / r; // t_mean^(2/5)
+        if (t_mean25 <= 0) {
+            uniformBackupWeight = 1;
+            break;
+        }
+        t_mean = t_mean25*t_mean25*sqrt(t_mean25); //pow(t_mean25, 5.0/2.0);
+        Float t_mean45 = math::square(t_mean25); // t_mean^(4/5)
+        Float t_mean85 = math::square(t_mean45); // t_mean^(8/5)
+        Float t_var = 125*t_mean85 / (
+                135*r2*t_mean45
+                + 90*r*(cosTheta+1)*t_mean25
+                - 54*r2 - 45*(cosTheta+2));
+        if (!(t_var > 0)) {
+            Log(EWarn, "Unexpected variance in implLengthShortLimitMargOverU0: %e", t_var);
+            uniformBackupWeight = 1;
+            break;
+        }
+
+        uniformBackupWeight = 1e-2;
+
+        if (safetyFac == 1.0) {
+            t_stddev = sqrt(t_var);
+            break;
+        }
+        /* Adjust mean and variance to take into account a safety factor 
+         * (this factor is an approximate rescaling factor for the variance 
+         * in ps, with the mean in ps kept constant). */
+        Float t_mean2 = t_mean*t_mean;
+        Float t_mean4 = t_mean2*t_mean2;
+        Float tmp2 = 1764*math::square((safetyFac-7./6.)*t_var)
+                + (2450-2800*safetyFac)*t_var*t_mean2
+                + 625*t_mean4;
+        Float tmp = (tmp2 > 0 ? sqrt(tmp2) : 0);
+        Float newMean = t_mean
+                * (475*t_mean2 - 868*safetyFac*t_var + 931*t_var - 19*tmp)
+                / (350*t_mean2 + (686-588*safetyFac)*t_var - 14*tmp);
+        Float newVar = t_var * (7./2. - 3*safetyFac) + 25./14.*t_mean2 - tmp/14.;
+        if (!(std::isfinite(tmp)) || !std::isfinite(newMean) || !(newVar > 0)) {
+            // can potentially happen -> simply use the original stddev (and mean)
+            t_stddev = sqrt(t_var);
+            // and increase the uniform backup weight as a safety measure
+            uniformBackupWeight = 0.3;
+            break;
+        }
+        t_mean = newMean;
+        t_stddev = sqrt(newVar);
+    } while (false); // to allow easy break from code block above
+
+    FSAssert(uniformBackupWeight == 1 || std::isfinite(t_mean));
+    FSAssert(uniformBackupWeight == 1 || t_stddev > 0);
+
+#if defined(SINGLE_PRECISION)
+    const Float meanTailCutoff = -1e4;
+#elif defined(DOUBLE_PRECISION)
+    const Float meanTailCutoff = -1e7;
+#endif
+    if (t_mean / t_stddev < meanTailCutoff) {
+        /* Sampling would nearly always give t=0 (exactly), correspoding to 
+         * ps=infinity. Use uniform sampling for now [TODO: use proper long 
+         * length limit instead!] */
+        uniformBackupWeight = 1;
+    }
+
+    Float ps, t;
+    const Float uniformSpan = 2;
+    if (sampler) {
+        if (uniformBackupWeight == 1 || sampler->next1D() < uniformBackupWeight) {
+            // simple uniform sampling
+            ps = uniformSpan * sampler->next1D();
+            t = pow(ps, -5.0/2.0);
+        } else {
+            do {
+                t = truncnorm(t_mean, t_stddev, 0.0, 1.0/0.0, sampler);
+            } while (t == 0);
+            ps = pow(t, -2.0/5.0);
+        }
+        s = ps / p;
+        FSAssert(ps > 0);
+        FSAssert(t > 0);
+        FSAssert(s > 0);
+    } else {
+        ps = s*p;
+        t = pow(ps, -5.0/2.0);
+        FSAssert(ps > 0);
+        FSAssert(t > 0);
+        FSAssert(s > 0);
+    }
+
+    if (pdf) {
+        Float tPdf = (uniformBackupWeight == 1 ? 0 : truncnormPdf(t_mean, t_stddev, 0.0, 1.0/0.0, t));
+        Float unifPdf = 1.0 / uniformSpan;
+        Float psPdf = uniformBackupWeight * unifPdf
+                + (1-uniformBackupWeight) * tPdf * 5.0/2.0*pow(ps, -7.0/2.0); // <- t to ps jacobian
+        *pdf = psPdf * p; // <- ps to s jacobian
+        FSAssert(*pdf >= 0 && (!sampler || *pdf > 0));
+    }
+}
 
 
 
