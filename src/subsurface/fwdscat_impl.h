@@ -211,15 +211,12 @@ FINLINE void FwdScat::calcValues(double length, double &C, double &D, double &E,
         /* Exact solutions, in a ps range that is safe from numerical problems */
         double TH = tanh(p*s);
         double SH = sinh(2*p*s);
-        double TH2 = tanh(2*p*s); /* Note: SH/CH with CH = sqrt(1 + SH*SH) is
-                                     unstable for large arguments (inf/inf) */
 
         double A=1/(s/p - TH/(p*p));
         double B=TH/(2*p);
 
-        CancellationCheck(3*A*B*B,  3/(2*TH2)); // C
         CancellationCheck(3*A*B*B, -3/(2*SH));  // D
-        C=3/ps; //3*A*B*B + 3/(2*TH2);
+        C=3/ps;
         D=3*A*B*B - 3/(2*SH);
         E=3*A*B;
         F=3*A/2;
@@ -1994,6 +1991,13 @@ FINLINE void FwdScat::implDirectionBoundaryAwareMonopole_bis(
     // frame:
     const Vector3d z(n0);
     Vector3d H = E*Vector3d(R) - D*Vector3d(uL);
+
+    // Regularize |H| if needed
+    if (H.length() > 1./MTS_FWDSCAT_DIRECTION_MIN_MU) {
+        // clamp length
+        H *= 1./MTS_FWDSCAT_DIRECTION_MIN_MU / H.length();
+    }
+
     Vector3d x_unnorm = H - z*dot(z,H);
     if (x_unnorm.length() <= Epsilon * H.length()) {
         /* any frame will do; a will go to 0 and the sampling will be
@@ -2009,11 +2013,15 @@ FINLINE void FwdScat::implDirectionBoundaryAwareMonopole_bis(
     FSAssert(math::abs(dot(x,z)) < Epsilon);
     FSAssert(math::abs(dot(y,z)) < Epsilon);
 
-    // TODO: regularize length of H!
-
     /* Sample cos(theta) */
     double a = dot(H,x);
     double b = dot(H,z);
+    if (a < 0) { // Can happen due to roundoff errors
+        if (a < -Epsilon * H.length())
+            Log(EWarn, "Numerical instabilities detected, a:%e, b:%e, H:%s (len %e)",
+                    a, b, H.toString().c_str(), H.length());
+        a = 0;
+    }
     FSAssert(a >= -10*Epsilon*H.length());
     FSAssert(std::isfinite(b));
     if (math::abs(a) < 1e-4) {
