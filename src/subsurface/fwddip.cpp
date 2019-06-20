@@ -1154,7 +1154,7 @@ public:
                     DSSProjFrame::EDirectionOut,
                     lengthSampler_along, itsSampler.get()));
             registerSampler(1.0, new ProjSurfaceSampler(
-                    DSSProjFrame::EDirectionOut,
+                    DSSProjFrame::EDirectionSide,
                     lengthSampler_along, itsSampler.get()));
 
             registerSampler(1.0, new PhaseFunctionSurfaceSampler(mu, sigmaTr, 0, itsSampler));
