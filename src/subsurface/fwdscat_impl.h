@@ -128,6 +128,7 @@ FINLINE double FwdScat::absorptionAndNormalizationConstant(Float theLength) cons
                     128 + 129*psi1 + 240*psi2 + 280*psi3 + 315*psi4);
         result *= p*p*p; // from p=1 back to the real p value;
         result *= math::fastexp(-sigma_a*theLength);
+        result *= 0.25; // XXX this factor was missing for some time!
     } else {
         double C, D, E, F;
         calcValues(theLength, C, D, E, F);
