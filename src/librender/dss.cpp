@@ -43,6 +43,9 @@ MTS_NAMESPACE_BEGIN
 static StatsCounter avgNumSplits("Direct Sampling Subsurface",
         "Average number of internal-reflection path splits", EAverage);
 
+static StatsCounter avgIntReflChainLen("Direct Sampling Subsurface",
+        "Average length of an internal-reflection chain", EAverage);
+
 static ref<Mutex> sourcesMutex = new Mutex();
 static int sourcesIndex = 0;
 
@@ -132,6 +135,11 @@ DirectSamplingSubsurface::DirectSamplingSubsurface(const Properties &props) :
     m_allowIncomingOutgoingDirections = props.getBoolean(
             "allowIncomingOutgoingDirections", false);
 
+    /* Maximum number of subsequent internal reflections. Negative value 
+     * for unbounded. */
+    m_maxInternalReflections = props.getInteger(
+            "maxInternalReflections", -1);
+
     /* Don't consider incoming surface points that are more absorption
      * lengths away from the outgoing query point than this factor. */
     Float cutoffNumAbsorptionLengths = props.getFloat(
@@ -148,9 +156,11 @@ DirectSamplingSubsurface::DirectSamplingSubsurface(const Properties &props) :
     }
 
     Log(EInfo, "DirectSamplingSubsurface settings: directSampling %d, "
-            "MIS %d, singleChannel %d, allowIncomingOutgoingDirections %d",
+            "MIS %d, singleChannel %d, allowIncomingOutgoingDirections %d, "
+            "maxIntRefl %d",
             m_directSampling, m_directSamplingMIS,
-            m_singleChannel, m_allowIncomingOutgoingDirections);
+            m_singleChannel, m_allowIncomingOutgoingDirections,
+            m_maxInternalReflections);
     {
         LockGuard lock(sourcesMutex);
         m_sourcesIndex = sourcesIndex++;
@@ -1570,9 +1580,10 @@ void DirectSamplingSubsurface::checkSourcesOfVariance(
  *
  * Convention: d should point inwards, conforming to a traditional 'wi'
  * vector. */
-Spectrum DirectSamplingSubsurface::Li(const Scene *scene, Sampler *sampler,
+Spectrum DirectSamplingSubsurface::Li_internal(const Scene *scene, Sampler *sampler,
         const Intersection &its_out, const Vector &d,
-        const Spectrum &throughput, int &splits, int depth) const {
+        const Spectrum &throughput, int &splits, int depth, int numInternalRefl) const {
+
     const Vector d_out = -d;
     const Normal n_out = its_out.shFrame.n;
 
@@ -1631,6 +1642,12 @@ Spectrum DirectSamplingSubsurface::Li(const Scene *scene, Sampler *sampler,
             if (!allowInternalReflection)
                 goto DSS_Li_radianceSourceSampling;
 
+            numInternalRefl++;
+
+            if (m_maxInternalReflections >= 0
+                    && numInternalRefl > m_maxInternalReflections)
+                goto DSS_Li_radianceSourceSampling;
+
             /* If we have internal reflection: don't go to the integrator
              * again, but just handle this through local recursion right
              * here until we break out of the medium. */
@@ -1673,12 +1690,18 @@ Spectrum DirectSamplingSubsurface::Li(const Scene *scene, Sampler *sampler,
             thisWeight /= (q * n);
             newThroughput /= (q * n);
             for (int s = 0; s < n; s++) {
-                Spectrum Li = DirectSamplingSubsurface::Li(
+                Spectrum Li = DirectSamplingSubsurface::Li_internal(
                         scene, sampler, its_in, rec_wi,
-                        newThroughput, splits, depth + 1);
+                        newThroughput, splits, depth + 1, numInternalRefl);
                 result += Li * thisWeight;
             }
         } else {
+            /* Ray exits our medium, possible after an internal reflection chain */
+            if (numInternalRefl > 0) {
+                avgIntReflChainLen.incrementBase();
+                avgIntReflChainLen += numInternalRefl;
+            }
+
             /* Ray exits our medium, query the integrator for Li */
             RadianceQueryRecord rRecBase(scene, sampler);
             RadianceQueryRecord rRec;

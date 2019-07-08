@@ -891,8 +891,11 @@ public:
      * setting the \c m_eta value of this DirectSamplingSubsurface to the
      * appropriate (non-unity) value */
     Spectrum Li(const Scene *scene, Sampler *sampler,
-        const Intersection &its, const Vector &d, const Spectrum &throughput,
-        int &splits, int depth) const;
+            const Intersection &its, const Vector &d,
+            const Spectrum &throughput, int &splits, int depth) const {
+        return Li_internal(
+                scene, sampler, its, d, throughput, splits, depth, 0);
+    }
 
     bool supportsLi() const {
         return true;
@@ -915,6 +918,10 @@ protected:
     /// Virtual destructor
     virtual ~DirectSamplingSubsurface();
 
+    Spectrum Li_internal(const Scene *scene, Sampler *sampler,
+            const Intersection &its, const Vector &d,
+            const Spectrum &throughput, int &splits, int depth,
+            int numInternalRefl) const;
 
     /**
      * \brief Should be called by derived classes during the configure()
@@ -1169,6 +1176,7 @@ protected:
     bool m_singleChannel;
     bool m_allowIncomingOutgoingDirections;
     bool m_nonCollimatedLightSourcesPresent;
+    int m_maxInternalReflections; /// Maximum number of subsequent internal reflections (<0 for unbounded)
     ref_vector<const SurfaceSampler> m_surfaceSamplers;
     DiscreteDistribution m_weights;
     /* itsDistanceCutoff is not actually used at this level, but it's added
