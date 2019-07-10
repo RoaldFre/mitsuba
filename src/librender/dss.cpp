@@ -567,7 +567,7 @@ Float WeightIntersectionSampler::pdf(
                         newSafeIts, its_out, d_out, chan); });
     Assert(ourWeight >= 0);
     /* Find cumul weight of all intersections (and check if we find ours!) */
-    bool foundOurself = false;
+    size_t ourIdx = (size_t) -1;
     Float cumulWeight = 0;
     for (size_t i = 0; i < intersections.size(); i++) {
         Float thisWeight = channelMean(channel,
@@ -576,7 +576,7 @@ Float WeightIntersectionSampler::pdf(
         Assert(thisWeight >= 0);
         cumulWeight += thisWeight;
         if (vectorEquals(Vector(newSafeIts.p), Vector(safeItss[i].p)))
-            foundOurself = true;
+            ourIdx = i;
     }
 
     if (cumulWeight <= RCPOVERFLOW)
@@ -587,7 +587,7 @@ Float WeightIntersectionSampler::pdf(
      * either. But even for semi-infinite rays, the actually sampled
      * intersection should be in the list when this function is called
      * (otherwise we would have bailed out more early!) */
-    if (!foundOurself) {
+    if (ourIdx == (size_t) -1) {
 #ifdef MTS_DEBUG
         SLog(EWarn, "Could not seem to find our own intersection. "
                 "(Num candidates: %d, cumul weight %e, newIts.p %s, "
@@ -600,12 +600,21 @@ Float WeightIntersectionSampler::pdf(
         return 0.0f;
     }
 
-    if (!(ourWeight <= cumulWeight * (1 + ShadowEpsilon))) {
+    if (!(ourWeight <= cumulWeight * (1 + sqrt(Epsilon)))) {
 #ifdef MTS_DEBUG
+        Float sumOfOtherWeights = 0;
+        for (size_t i = 0; i < intersections.size(); i++) {
+            if (i == ourIdx)
+                continue;
+            Float thisWeight = channelMean(channel,
+                        [=] (int chan) { return m_intersectionWeight(
+                            safeItss[i], its_out, d_out, chan); });
+            sumOfOtherWeights += thisWeight;
+        }
         SLog(EWarn, "Inconsistent weights for pdfIntersection: "
-                "ours %e, cumul %e, rel %e, num its %d",
+                "ours %e, cumul %e, rel %e, num its %d, sumOfOthers %e, relSumOthers %e",
                 ourWeight, cumulWeight, ourWeight/cumulWeight,
-                intersections.size());
+                intersections.size(), sumOfOtherWeights, sumOfOtherWeights/cumulWeight);
 #endif
         return 1.0f;
     }
@@ -709,8 +718,11 @@ static void getExtremalPlaneValues(const Vector &u, const Vector &v,
     /* Because we only get called when the point p is actually on the
      * surface, we should have only negative xLo values and only positive
      * xHi values. */
-    SAssert(xLo.x <= 0 && xLo.y <= 0);
-    SAssert(xHi.x >= 0 && xHi.y >= 0);
+    SAssertWarn(xLo.x <= 0 && xLo.y <= 0);
+    SAssertWarn(xHi.x >= 0 && xHi.y >= 0);
+
+    SAssertWarn(xLo.isFinite());
+    SAssertWarn(xHi.isFinite());
 }
 
 Float ProjSurfaceSampler::sample(const Intersection &its,
@@ -741,8 +753,12 @@ Float ProjSurfaceSampler::sample(const Intersection &its,
                     [=] (int chan) { return m_planeSampler->pdf(
                                        chan, x, cosTheta, xLo, xHi); });
 
-    Assert(std::isfinite(planePdf));
-    Assert(planePdf != 0); /* We already could sample our 'own' channel! */
+    if (!std::isfinite(planePdf) || planePdf <= 0) {
+        /* Note: planePdf shouldn't be 0 because we already could sample 
+         * our 'own' channel! */
+        Log(EWarn, "Invalid plane pdf: %e", planePdf);
+        return 0.0f;
+    }
 
     Point o = its.p + x[0]*u + x[1]*v;
 

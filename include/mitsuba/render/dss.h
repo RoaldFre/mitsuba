@@ -312,8 +312,10 @@ public:
         for (size_t j = 0; j < m_weights.size(); j++) {
             if (j == i)
                 continue;
-            thePdf += m_weights[j] * m_samplers[j]->pdf(
+            Float thisPdf = m_samplers[j]->pdf(
                     intersections, newIts, its_out, d_out, channel);
+            Assert(thisPdf >= 0);
+            thePdf += m_weights[j] * thisPdf;
             Assert(std::isfinite(thePdf));
         }
         return thePdf;
@@ -324,8 +326,10 @@ public:
             const Vector &d_out, int channel) const {
         Float thePdf = 0;
         for (size_t j = 0; j < m_weights.size(); j++) {
-            thePdf += m_weights[j] * m_samplers[j]->pdf(
+            Float thisPdf = m_samplers[j]->pdf(
                     intersections, newIts, its_out, d_out, channel);
+            Assert(thisPdf >= 0);
+            thePdf += m_weights[j] * thisPdf;
             Assert(std::isfinite(thePdf));
         }
         return thePdf;
