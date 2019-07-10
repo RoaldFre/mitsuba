@@ -306,26 +306,47 @@ protected:
 };
 
 inline IntersectionWeightFunc fwdDipSmallLengthWeightFunc(
-        Spectrum sigma_s, Spectrum g) {
-    Spectrum pSpec(0.5*sigma_s*(Spectrum(1.0f) - g));
+        Spectrum sigma_s, Spectrum sigma_a, Spectrum g, bool useR3) {
+    Spectrum sigmaSPrime = sigma_s * (Spectrum(1.0f) - g);
+    Spectrum sigmaTPrime = sigmaSPrime + sigma_a;
+    Spectrum sigmaTr = (sigma_a * sigmaTPrime * 3.0f).sqrt();
+    Spectrum pSpec = 0.5 * sigmaSPrime;
 
     return [=] (const Intersection &its_in, const Intersection &its_out,
             const Vector &d_out, int i) {
         SAssert(i>=0);
-        Vector rDir = its_out.p - its_in.p;
-        if (rDir.length() == 0)
+        Vector rVec = its_out.p - its_in.p; // dimensionfull
+        if (rVec.length() == 0)
             return (Float) 1.0f;
-        Float cosTheta = dot(d_out, normalize(rDir));
+        Float cosTheta = dot(d_out, normalize(rVec));
         Float p = pSpec[i];
         SAssert(p >= 0);
         if (p == 0)
             return (Float) 0.0f;
-        Float R = rDir.length() * p;
-        //return (Float) exp(3.f*(cosTheta - 1.f)/R)/R;
-        return (Float) exp(3.f*(cosTheta - 1.f)/R)/(R*R);
+        Float R = rVec.length() * p; // dimensionless
+        Float result;
+        if (useR3) {
+            // Based on revised derivation, but seems to fall off too quickly for large R?
+            result = exp(2.5f*(cosTheta - 1.f)/R)/(R*R*R);
+        } else {
+            // Based on initial derivation
+            //result = exp(3.f*(cosTheta - 1.f)/R)/R;
+            result = exp(3.f*(cosTheta - 1.f)/R)/(R*R);
+        }
+
+        /* Modulate with long-length asymptotic factor in case we get 
+         * intersections that are far away (in the diffusive range), where 
+         * our own 1/R^n fall-off isn't fast enough (and hence we give too 
+         * much weight to intersections where our approximation isn't 
+         * valid!) */
+        if (rVec.length() > 1/p) 
+            result *= exp(-(rVec.length() - 1/p) * sigmaTr[i]);
+
+        SAssert(std::isfinite(result));
+        SAssert(result >= 0);
+        return result;
     };
 }
-
 
 class MTS_EXPORT_RENDER PhaseFunctionSurfaceSampler : public SurfaceSampler {
 public:
@@ -1144,15 +1165,23 @@ public:
                     new WeightIntersectionSampler(distanceWeightWrapper(
                             makeConstantDistanceWeight()),
                     m_itsDistanceCutoff);
-            ref<IntersectionSampler> itsSamplerFwdDipSmallLen =
+
+            ref<IntersectionSampler> itsSamplerFwdDipSmallLenR2 =
                     new WeightIntersectionSampler(
-                            fwdDipSmallLengthWeightFunc(m_sigmaS, m_g),
+                            fwdDipSmallLengthWeightFunc(
+                                m_sigmaS, m_sigmaA, m_g, false),
+                    m_itsDistanceCutoff);
+            ref<IntersectionSampler> itsSamplerFwdDipSmallLenR3 =
+                    new WeightIntersectionSampler(
+                            fwdDipSmallLengthWeightFunc(
+                                m_sigmaS, m_sigmaA, m_g, true),
                     m_itsDistanceCutoff);
 
             std::vector<std::pair<Float, const IntersectionSampler*> > is;
             is.push_back(std::make_pair(0.1, itsSamplerUniform.get()));
             is.push_back(std::make_pair(1.0, itsSamplerExactJensenDipole.get()));
-            is.push_back(std::make_pair(1.0, itsSamplerFwdDipSmallLen.get()));
+            is.push_back(std::make_pair(0.5, itsSamplerFwdDipSmallLenR2.get()));
+            is.push_back(std::make_pair(0.5, itsSamplerFwdDipSmallLenR3.get()));
             ref<IntersectionSampler> itsSampler = new MISIntersectionSampler(is);
 
 
