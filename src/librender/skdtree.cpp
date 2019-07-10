@@ -121,10 +121,7 @@ bool ShapeKDTree::rayIntersect(const Ray &ray, Intersection &its) const {
     ++raysTraced;
     if (m_aabb.rayIntersect(ray, mint, maxt)) {
         /* Use an adaptive ray epsilon */
-        Float rayMinT = ray.mint;
-        if (rayMinT == Epsilon)
-            rayMinT *= std::max(std::max(std::max(std::abs(ray.o.x),
-                std::abs(ray.o.y)), std::abs(ray.o.z)), Epsilon);
+        Float rayMinT = getAdaptiveRayMinT(ray);
 
         if (rayMinT > mint) mint = rayMinT;
         if (ray.maxt < maxt) maxt = ray.maxt;
@@ -151,10 +148,7 @@ void ShapeKDTree::rayIntersectFully(const Ray &ray,
     ++raysTraced;
     if (m_aabb.rayIntersect(ray, mint, maxt)) {
         /* Use an adaptive ray epsilon */
-        Float rayMinT = ray.mint;
-        if (rayMinT == Epsilon)
-            rayMinT *= std::max(std::max(std::max(std::abs(ray.o.x),
-                std::abs(ray.o.y)), std::abs(ray.o.z)), Epsilon);
+        Float rayMinT = getAdaptiveRayMinT(ray);
 
         if (rayMinT > mint) mint = rayMinT;
         if (ray.maxt < maxt) maxt = ray.maxt;
@@ -175,10 +169,7 @@ bool ShapeKDTree::rayIntersect(const Ray &ray, Float &t, ConstShapePtr &shape,
     ++shadowRaysTraced;
     if (m_aabb.rayIntersect(ray, mint, maxt)) {
         /* Use an adaptive ray epsilon */
-        Float rayMinT = ray.mint;
-        if (rayMinT == Epsilon)
-            rayMinT *= std::max(std::max(std::abs(ray.o.x),
-                std::abs(ray.o.y)), std::abs(ray.o.z));
+        Float rayMinT = getAdaptiveRayMinT(ray);
 
         if (rayMinT > mint) mint = rayMinT;
         if (ray.maxt < maxt) maxt = ray.maxt;
@@ -234,10 +225,7 @@ bool ShapeKDTree::rayIntersect(const Ray &ray) const {
     ++shadowRaysTraced;
     if (m_aabb.rayIntersect(ray, mint, maxt)) {
         /* Use an adaptive ray epsilon */
-        Float rayMinT = ray.mint;
-        if (rayMinT == Epsilon)
-            rayMinT *= std::max(std::max(std::abs(ray.o.x),
-                std::abs(ray.o.y)), std::abs(ray.o.z));
+        Float rayMinT = getAdaptiveRayMinT(ray);
 
         if (rayMinT > mint) mint = rayMinT;
         if (ray.maxt < maxt) maxt = ray.maxt;

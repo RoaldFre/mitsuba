@@ -210,6 +210,20 @@ public:
     void rayIntersectPacketIncoherent(const RayPacket4 &packet,
         const RayInterval4 &interval, Intersection4 &its, void *temp) const;
 #endif
+
+    /**
+     * \brief Return the mint value of the ray, which is chosen adaptively 
+     * based on ray.o in case ray.mint exactly equals Epsilon.
+     */
+    static inline Float getAdaptiveRayMinT(const Ray &ray) {
+        /* Use an adaptive ray epsilon */
+        Float rayMinT = ray.mint;
+        if (rayMinT == Epsilon)
+            rayMinT *= std::max(std::max(std::max(std::abs(ray.o.x),
+                std::abs(ray.o.y)), std::abs(ray.o.z)), Epsilon);
+        return rayMinT;
+    }
+
     //! @}
     // =============================================================
 
