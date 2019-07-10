@@ -200,10 +200,8 @@ protected:
 class MTS_EXPORT_RENDER FwdDipSmallLengthSamplerAlongDir : public TangentSampler2D {
 public:
     FwdDipSmallLengthSamplerAlongDir(Spectrum sigma_s, Spectrum g,
-            Float pSafetyFactor = DEFAULT_P_SAFETY_FACTOR,
-            Float RpMax = 1.0f) :
-                m_p(pSafetyFactor * 0.5*sigma_s*(Spectrum(1.0f) - g)),
-                m_RpMax(RpMax) {
+            Float pSafetyFactor = DEFAULT_P_SAFETY_FACTOR) :
+                m_p(pSafetyFactor * 0.5*sigma_s*(Spectrum(1.0f) - g)) {
         Assert(sigma_s.isFinite());
         Assert(g.isFinite());
         Assert(m_p.isFinite());
@@ -233,22 +231,26 @@ public:
             return false;
 
         // We work in p=1
-        // MIS sampling of 1/sqrt(R) and 1/R
-        Float u = sampler->next1D();
-        Float R;
-        if (u > 0.5) {
-            u = 2*(u-0.5);
-            // sample according to 1/sqrt(R)
-            R = m_RpMax * (2 - u - 2*sqrt(1-u));
-        } else {
-            u = 2*u;
-            // sample according to 1/R
-            R = -Rmax * gsl_sf_lambert_W0(
-                    -exp((u-1)*Rmin/Rmax - u) * pow(Rmin/Rmax, 1.-u));
-            Assert(std::isfinite(R));
-            AssertWarn(R >= Rmin && R <= Rmax);
-        }
 
+        /* Sampling R: MIS between uniform back-up and importance sampled 
+         * weight. */
+        Float R;
+        Float u = sampler->next1D();
+        if (u < RUniformWeight) {
+            u = u / RUniformWeight;
+            R = Rmax * u;
+        } else {
+            u = (u - RUniformWeight) / (1 - RUniformWeight);
+            /* R is sampled according to "1/(Rmin + R) with a cutoff at Rmax" 
+             * (see pdf() for the exact pdf) */
+            R = -Rmin  -  (Rmax+Rmin) * gsl_sf_lambert_W0(
+                        -exp((-u*Rmax - Rmin)/(Rmin + Rmax))
+                            * pow(Rmin/(Rmin + Rmax), (Float)1.-u));
+        }
+        Assert(std::isfinite(R));
+        AssertWarn(R >= 0 && R <= Rmax);
+
+        /* Sampling 'sideways' displacement d */
         Float stddev = dMaxSafetyScale * sqrt(R*R*R/6);
         Float d = stddev * warp::squareToStdNormal(sampler->next2D()).x;
 
@@ -259,6 +261,7 @@ public:
 
         if (thePdf)
             *thePdf = pdf(channel, x, cosTheta, xLo, xHi);
+
         return true;
     }
 
@@ -268,19 +271,16 @@ public:
         Float p = m_p[channel];
         Float R = -x[0]*p; // displacement is backwards along the query point!
         Float d = x[1]*p;
-        if (p == 0 || R < 0 || R > m_RpMax)
+        if (p == 0 || R < 0 || R > Rmax)
             return 0;
 
         Float stddev = dMaxSafetyScale * sqrt(R*R*R/6);
         Float dPdf = warp::lineToStdNormalPdf(d / stddev) / stddev;
-        Float Rpdf_invSqrtR = 1/sqrt(m_RpMax * R) - 1/m_RpMax;
-        Float Rpdf_invR = 0;
-        if (R >= Rmin && R < Rmax) {
-            Rpdf_invR = (Rmax - R) / (
-                    R * (Rmin + Rmax*(log(Rmax/Rmin) - 1)));
-            Assert(std::isfinite(Rpdf_invR) && Rpdf_invR >= 0);
-        }
-        Float Rpdf = 0.5 * (Rpdf_invSqrtR + Rpdf_invR);
+        Float RpdfImp = (Rmax - R) / (
+                (Rmin + R) * ((Rmin + Rmax)*log((Rmin+Rmax)/Rmin)  -  Rmax));
+        Float RpdfUnif = 1. / Rmax;
+        Float Rpdf = RpdfUnif * RUniformWeight  +  RpdfImp * (1 - RUniformWeight);
+        Assert(std::isfinite(Rpdf) && Rpdf >= 0);
         return Rpdf * dPdf * p*p;
     }
 
@@ -291,18 +291,18 @@ protected:
 
     const Spectrum m_p;
 
-    /* Maximum length along the outgoing, queried radiance direction, in
-     * units of 1/p -- i.e. the maximum component of R*p along the 
-     * direction. This is for sampling R according to 1/sqrt(R). */
-    const Float m_RpMax;
-
     /* How much wider we make the sample area, to make sure we have covered
      * the peak properly. */
     const Float dMaxSafetyScale = 2;
 
-    /* Boundaries for sampling R according to 1/R (Rmin should be > 0) */
+    /* Boundaries for sampling R according to "~1/(Rmin + R)" with cut-off 
+     * above Rmax and with Rmin denoting the inflection point towards an 
+     * asymptotically uniform distribution for R < Rmin (i.e. R -> 0). */
     const Float Rmin = 1e-10;
     const Float Rmax = 0.1;
+
+    /* Sample R uniformly between 0 and Rmax with this weight: */
+    const Float RUniformWeight = 0.4;
 };
 
 inline IntersectionWeightFunc fwdDipSmallLengthWeightFunc(
