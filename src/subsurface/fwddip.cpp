@@ -1149,9 +1149,14 @@ public:
         if (m_useEffectiveBRDF) {
             registerSampler(1.0, new BRDFDeltaSurfaceSampler());
         } else {
-            /* MIS weights for surface sampler */
-            const Float jensenWeight = 1;      /* classical dipole for large lengths */
-            const Float smallLengthWeight = 1; /* dedicated sampler for small lengths */
+            /* MIS weights for surface sampler: */
+            /* Classical dipole for large lengths, weight 1/3 because this 
+             * should work almost equally wel in any of the three 
+             * projection directions */
+            const Float jensenWeight = 1./3.;
+            /* Dedicated sampler for small lengths, much more sensitive to 
+             * the projection direction, so give unit weight to each one. */
+            const Float smallLengthWeight = 1;
 
             ref<InstanceManager> manager = new InstanceManager();
 
