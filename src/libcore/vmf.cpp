@@ -24,30 +24,64 @@
 MTS_NAMESPACE_BEGIN
 
 Float VonMisesFisherDistr::eval(Float cosTheta) const {
-    if (m_kappa == 0.0f)
-        return INV_FOURPI;
-#if 0
-    return math::fastexp(cosTheta * m_kappa)
-        * m_kappa / (4 * M_PI * std::sinh(m_kappa));
-#else
-    /* Numerically stable version */
-    return math::fastexp(m_kappa * std::min((Float)0, cosTheta - 1))
-        * m_kappa / (2 * M_PI * (1-math::fastexp(-2*m_kappa)));
-#endif
+    if (math::abs(m_kappa) < Epsilon) {
+        /* Expansion in small kappa, up to second order */
+        /* The expanded pdf is still guaranteed to be >= 0 */
+        return INV_FOURPI * (1 + cosTheta * m_kappa
+                + (0.5*cosTheta*cosTheta - 1./6.) * m_kappa*m_kappa);
+    } else if (m_kappa > LOG_REDUCED_PRECISION / 4) {
+        /* Expansion in kappa -> +infty */
+        return INV_TWOPI * math::fastexp((cosTheta - 1) * m_kappa) * m_kappa;
+    } else if (m_kappa < -LOG_REDUCED_PRECISION / 4) {
+        /* Expansion in kappa -> -infty */
+        return INV_TWOPI * math::fastexp((cosTheta + 1) * m_kappa) * (-m_kappa);
+    } else {
+        return INV_TWOPI * math::fastexp(m_kappa * std::min((Float)0, cosTheta - 1))
+            * m_kappa / (1-math::fastexp(-2*m_kappa));
+    }
 }
 
 Vector VonMisesFisherDistr::sample(const Point2 &sample) const {
     if (m_kappa == 0)
         return warp::squareToUniformSphere(sample);
 
-#if 0
-    Float cosTheta = math::fastlog(math::fastexp(-m_kappa) + 2 *
-                        sample.x * std::sinh(m_kappa)) / m_kappa;
-#else
-    /* Numerically stable version */
-    Float cosTheta = 1 + (math::fastlog(sample.x +
-        math::fastexp(-2 * m_kappa) * (1 - sample.x))) / m_kappa;
-#endif
+    Float cosTheta;
+    Float u = sample.x;
+    if (math::abs(m_kappa) < ShadowEpsilon) {
+        /* Expansion in small kappa, up to second order. */
+        Float u2 = u*u;
+        Float u3 = u2*u;
+        /* The expanded cosTheta is still guaranteed to stay within -1..1 */
+        cosTheta = 2.*u - 1
+                + (-2.*u2 + 2.*u) * m_kappa
+                + (8./3.*u3 - 4.*u2 + 4./3.*u) * m_kappa*m_kappa;
+    } else if (m_kappa > LOG_REDUCED_PRECISION / 4) {
+        cosTheta = 1 + log(u) / m_kappa;
+        if (cosTheta < -1) {
+            /* *INSANELY* unlikely (pdf below would probably cut off to
+             * zero anyway, but universe would die of heat death first) */
+            SLog(EWarn, "Woah! Universe should have encountered heat death, "
+                    "or code is bugged -- cosTheta: %f", cosTheta);
+            cosTheta = -1;
+        }
+    } else if (m_kappa < -LOG_REDUCED_PRECISION / 4) {
+        cosTheta = -1 + log(u) / m_kappa;
+        if (cosTheta > 1) {
+            /* *INSANELY* unlikely (pdf below would probably cut off to
+             * zero anyway, but universe would die of heat death first) */
+            SLog(EWarn, "Woah! Universe should have encountered heat death, "
+                    "or code is bugged -- cosTheta: %f", cosTheta);
+            cosTheta = 1;
+        }
+    } else {
+        cosTheta = 1 + (math::fastlog(
+                u + math::fastexp(-2 * m_kappa) * (1 - u))) / m_kappa;
+    }
+    if (cosTheta < -1.001 || cosTheta > 1.001)
+        SLog(EWarn, "Numerical instability in sampling cosTheta: %f (kappa=%e)",
+                cosTheta, m_kappa);
+
+    cosTheta = math::clamp(cosTheta, (Float) -1, (Float) 1); // For safety
 
     Float sinTheta = math::safe_sqrt(1-cosTheta*cosTheta),
           sinPhi, cosPhi;
@@ -132,9 +166,9 @@ Float VonMisesFisherDistr::forMeanCosine(Float g) {
     else if (g < 0)
         SLog(EError, "Error: vMF distribution cannot be created for g<0.");
 
-    BrentSolver brentSolver(100, 1e-6f);
+    BrentSolver brentSolver(1000, Epsilon);
     BrentSolver::Result result = brentSolver.solve(
-        boost::bind(&meanCosineFunctor, _1, g), 0, 1000);
+        boost::bind(&meanCosineFunctor, _1, g), 0, 10000);
     SAssert(result.success);
     return result.x;
 }
