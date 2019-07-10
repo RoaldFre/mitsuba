@@ -733,7 +733,7 @@ Float ProjSurfaceSampler::sample(const Intersection &its,
     /* Sample from the uniformly weighted sum of the pdfs associated with
      * the different spectral channels. First pick a single channel
      * uniformly. */
-    Float chosenChannel = channel == -1
+    int chosenChannel = channel == -1
             ? sampler->next1D() * SPECTRUM_SAMPLES
             : channel;
 
