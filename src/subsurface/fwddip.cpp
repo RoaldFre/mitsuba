@@ -18,8 +18,10 @@
 
 #include <mitsuba/render/scene.h>
 #include <mitsuba/render/dss.h>
+#include <mitsuba/render/skdtree.h>
 #include <mitsuba/core/plugin.h>
 #include <mitsuba/core/warp.h>
+#include <mitsuba/core/vmf.h>
 #include <gsl/gsl_sf_lambert.h>
 #include "../medium/materials.h"
 #include "fwdscat.h"
@@ -350,10 +352,11 @@ inline IntersectionWeightFunc fwdDipSmallLengthWeightFunc(
 
 class MTS_EXPORT_RENDER PhaseFunctionSurfaceSampler : public SurfaceSampler {
 public:
-    PhaseFunctionSurfaceSampler(Float mu, const Spectrum &sigmaTr,
+    PhaseFunctionSurfaceSampler(const Spectrum &sigmaTr, const Spectrum &p,
             Float retreatFactor, const IntersectionSampler *itsSampler)
-            : m_sigmaTr(sigmaTr), m_retreatFactor(retreatFactor), m_itsSampler(itsSampler) {
-        /* Initialize phase function */
+            : m_sigmaTr(sigmaTr), m_p(p), m_retreatFactor(retreatFactor),
+              m_itsSampler(itsSampler) {
+        /* Initialize phase function for marginalized sampling */
         size_t N = sizeof(comboData)/sizeof(*comboData);
 
         // MIS: Forward log divergent peak
@@ -384,21 +387,21 @@ public:
             const std::vector<Shape *> &shapes,
             Intersection &newIts, int channel,
             Sampler *sampler) const {
-        // TODO take channel into account for the phase function sampling...
-        PhaseFunctionSamplingRecord pRec(MediumSamplingRecord(), d_out);
-        m_phase.sample(pRec, sampler);
-        Float phasePdf = m_phase.pdf(pRec);
-        std::vector<Intersection> intersections;
+        Vector rayDir;
+        Float dirPdf = sampleDir(its, d_out, scene, shapes, channel, sampler, rayDir);
+
+        // Intersection prob
         Point startPoint = getStartPoint(its, d_out);
         Float intersectionProb = m_itsSampler->sample(newIts, scene,
-                startPoint, pRec.wo, its.time,
+                startPoint, rayDir, its.time,
                 shapes, its, d_out, channel, sampler, false);
         if (intersectionProb == 0)
             return 0.0f;
 
+        // Change of var
         Float r = distance(startPoint, newIts.p);
         AssertWarn(r <= m_itsSampler->getItsDistanceCutoff() * 1.01);
-        Float surfaceCosine = dot(pRec.wo, newIts.geoFrame.n);
+        Float surfaceCosine = dot(rayDir, newIts.geoFrame.n);
         Float absSurfCosine = math::abs(surfaceCosine);
         if (absSurfCosine <= MTS_DSS_COSINE_CUTOFF) {
             /* Sampling this surface was badly conditioned -- abandon ship here
@@ -406,16 +409,16 @@ public:
              * TODO: NOTE: we are still slightly biased in the way that
              * our pdf is now not properly normalized anymore! But these
              * occurences should only account for a tiny fraction of
-             * 'integrated weight' precicely because the cosine is so
+             * 'integrated weight' precisely because the cosine is so
              * small. */
             return 0.0f;
         }
-        Float solidAngleToAreaWeight= absSurfCosine/(r*r);
-        Float pdf = solidAngleToAreaWeight * phasePdf * intersectionProb;
+        Float solidAngleToAreaWeight = absSurfCosine/(r*r);
+        Float pdf = solidAngleToAreaWeight * dirPdf * intersectionProb;
         if (!std::isfinite(pdf)) {
             Log(EWarn, "Invalid pdf in samplePointFromPhaseFunction: %f, "
                     "saToWeight %e, phase %e, intersect %e",
-                    pdf, solidAngleToAreaWeight, phasePdf,
+                    pdf, solidAngleToAreaWeight, dirPdf,
                     intersectionProb);
             return 0;
         }
@@ -429,38 +432,336 @@ public:
         return pdf;
     }
 
+    inline Float sampleDir(const Intersection &its,
+            const Vector &d_out, const Scene *scene,
+            const std::vector<Shape *> &shapes, int channel,
+            Sampler *sampler, Vector &rayDir) const {
+        /* MIS combo of marginalized and depthSensing, but if 
+         * depthSensing fails, then 100% marginalized */
+        Float dirPdf;
+        if (sampler->next1D() < m_sensingWeight) {
+            Float sensePdf;
+            if (sampleWithSensing(its, d_out, scene, shapes,
+                    channel, sampler, rayDir, sensePdf)) {
+                dirPdf = m_sensingWeight * sensePdf
+                        + (1 - m_sensingWeight) * pdfMarginalized(d_out, rayDir);
+            } else {
+                sampleMarginalized(d_out, sampler, rayDir, dirPdf);
+            }
+        } else {
+            Float margPdf, sensePdf;
+            sampleMarginalized(d_out, sampler, rayDir, margPdf);
+            if (sampleWithSensing(
+                    its, d_out, scene, shapes, channel, NULL, rayDir, sensePdf)) {
+                dirPdf = m_sensingWeight * sensePdf
+                        + (1 - m_sensingWeight) * margPdf;
+            } else {
+                dirPdf = margPdf;
+            }
+        }
+        return dirPdf;
+    }
+
+    inline void sampleMarginalized(const Vector &d_out,
+            Sampler *sampler, Vector &rayDir, Float &dirPdf) const {
+        /* Note: we are marginalized up to 1 reduced scattering length, 
+         * which means that we are no longer dependent on the actual medium 
+         * parameters here. */
+        PhaseFunctionSamplingRecord pRec(MediumSamplingRecord(), d_out);
+        m_phase.sample(pRec, sampler);
+        dirPdf = m_phase.pdf(pRec);
+        rayDir = pRec.wo;
+    }
+
+
+    /** Trace sensing rays along -d_out to query the depth until we find 
+     *  geometry. This is a MIS combo of original and perturbed sampling (= 
+     *  small perturbations on d_out for robustness). If the initially 
+     *  chosen sampling method (perturbed vs nonperturbed) fails, then try 
+     *  the other one as well. 
+     *
+     *  If sampler != NULL, then sample rayDir and set the dirPdf.
+     *  If sampler == NULL, then only set the dirPdf from the given rayDir.
+     *  Returns false if we couldn't sample or compute pdf. */
+    inline bool sampleWithSensing(const Intersection &its,
+            const Vector &d_out, const Scene *scene,
+            const std::vector<Shape *> &shapes, int channel,
+            Sampler *sampler, Vector &rayDir, Float &dirPdf) const {
+
+        const Float perturbedWeight = 0.5;
+
+        Float pertPdf, unpertPdf;
+        if (sampler) {
+            // Sampling was requested! (BEWARE, THIS IS A BIT OF A LOGICAL JUNGLE :P)
+            if (sampler->next1D() < perturbedWeight) {
+                // Try to sample perturbed
+                if (sampleWithSensing_perturbed(its, d_out, scene, shapes,
+                        channel, sampler, rayDir, pertPdf)) {
+                    if (sampleWithSensing_internal(its, d_out, scene, shapes,
+                            channel, NULL, rayDir, unpertPdf)) {
+                        // could sample pert and unpert
+                        dirPdf = perturbedWeight * pertPdf
+                                + (1 - perturbedWeight) * unpertPdf;
+                        return true;
+                    } else {
+                        // could only sample pert
+                        dirPdf = pertPdf;
+                        return true;
+                    }
+                } else {
+                    // could not sample perturbed, fall back to unperturbed
+                    if (sampleWithSensing_internal(its, d_out, scene, shapes,
+                            channel, sampler, rayDir, unpertPdf)) {
+                        // could only sample unpert
+                        dirPdf = unpertPdf;
+                        return true;
+                    } else {
+                        // could not sample pert nor unpert!
+                        return false;
+                    }
+                }
+            } else {
+                // Try to sample unperturbed
+                if (sampleWithSensing_internal(its, d_out, scene, shapes,
+                        channel, sampler, rayDir, unpertPdf)) {
+                    if (sampleWithSensing_perturbed(its, d_out, scene, shapes,
+                            channel, NULL, rayDir, pertPdf)) {
+                        // could sample pert and unpert
+                        dirPdf = perturbedWeight * pertPdf
+                                + (1 - perturbedWeight) * unpertPdf;
+                        return true;
+                    } else {
+                        // could only sample unpert
+                        dirPdf = unpertPdf;
+                        return true;
+                    }
+                } else {
+                    // could not sample unperturbed, fall back to perturbed
+                    if (sampleWithSensing_perturbed(its, d_out, scene, shapes,
+                            channel, sampler, rayDir, pertPdf)) {
+                        // could only sample pert
+                        dirPdf = pertPdf;
+                        return true;
+                    } else {
+                        // could not sample pert nor unpert!
+                        return false;
+                    }
+                }
+            }
+        } else {
+            // only pdf is requested (this makes the logic a bit cleaner ;-) )
+            bool pertWorks   = sampleWithSensing_perturbed(
+                    its, d_out, scene, shapes, channel, NULL, rayDir, pertPdf);
+            bool unpertWorks = sampleWithSensing_internal(
+                    its, d_out, scene, shapes, channel, NULL, rayDir, unpertPdf);
+            if (!pertWorks && !unpertWorks) {
+                // could not sample pert nor unpert!
+                return false;
+            } else if (pertWorks && unpertWorks) {
+                // could sample pert and unpert
+                dirPdf = perturbedWeight * pertPdf
+                        + (1 - perturbedWeight) * unpertPdf;
+            } else if (pertWorks) {
+                dirPdf = pertPdf;
+            } else {
+                dirPdf = unpertPdf;
+            }
+            return true;
+        }
+    }
+
+    /** MIS of small perturbations on d_out for robustness. This sampler 
+     * 'fails' if any of its perturbations fail. (Note: Might 'rebalance' 
+     * to reweight MIS based on those perturbations that don't fail...)*/
+    inline bool sampleWithSensing_perturbed(const Intersection &its,
+            const Vector &d_out, const Scene *scene,
+            const std::vector<Shape *> &shapes, int channel,
+            Sampler *sampler, Vector &rayDir, Float &dirPdf) const {
+        const Float perturbSize = 0.1;
+        const std::vector<Vector> perturbs = {
+            // Vertices of a tetrahedron
+            Vector(1, 1, 1) / SQRT_TWO,
+            Vector(-1,-1,1) / SQRT_TWO,
+            Vector(-1,1,-1) / SQRT_TWO,
+            Vector(1,-1,-1) / SQRT_TWO,
+        };
+
+        // Sample if that is requested
+        int sampledIdx;
+        Float sampledDirPdf = 0./0.;
+        if (sampler) {
+            Float u = sampler->next1D();
+            sampledIdx = std::min((int)(u * perturbs.size()), (int)(perturbs.size() - 1));
+            Vector pert = perturbSize * perturbs[sampledIdx];
+            if (!sampleWithSensing_internal(its, d_out, scene, shapes,
+                    channel, sampler, rayDir, sampledDirPdf, &pert))
+                return false;
+        }
+
+        // Compute MIS pdf combination
+        dirPdf = 0;
+        for (int i = 0; i < (int)perturbs.size(); i++) {
+            if (sampler && i == sampledIdx) {
+                dirPdf += sampledDirPdf / perturbs.size();
+            } else {
+                Float thisPertPdf;
+                Vector pert = perturbSize * perturbs[i];
+                if (!sampleWithSensing_internal(its, d_out, scene, shapes, channel, 
+                        NULL, rayDir, thisPertPdf, &pert))
+                    return false;
+                dirPdf += thisPertPdf / perturbs.size();
+            }
+        }
+        return true;
+    }
+
+    /** If sampler != NULL, then sample rayDir and set the dirPdf.
+     *  If sampler == NULL, then only set the dirPdf from the given rayDir.
+     *  Returns false if we couldn't sample or compute pdf. */
+    inline bool sampleWithSensing_internal(const Intersection &its,
+            const Vector &d_out, const Scene *scene,
+            const std::vector<Shape *> &shapes,
+            int channel, Sampler *sampler,
+            Vector &rayDir, Float &dirPdf,
+            const Vector *sensePerturb = NULL) const {
+
+        /* Collect all intersections up to a distance of 1/p */
+        Float tMax = channel == -1 ?
+                1.0/m_p.min() : 1.0/m_p[channel];
+        std::vector<Intersection> senseIntersections;
+        Vector senseDir = sensePerturb ? 
+                normalize(-d_out + *sensePerturb) : -d_out;
+        scene->rayIntersectFully(Ray(its.p, senseDir, Epsilon, tMax, its.time),
+                senseIntersections, &shapes);
+        if (senseIntersections.size() == 0)
+            return false;
+
+        /* Sample (or set localDir for the pdf if sampling isn't requested) */
+        Frame dirFrame(-d_out); // point inwards; construction is deterministic
+        Vector localDir;
+        if (sampler) {
+            int chosenChannel = channel == -1
+                    ? sampler->next1D() * SPECTRUM_SAMPLES
+                    : channel;
+            Float chosenDistance = senseIntersections[
+                    (size_t)(sampler->next1D() * senseIntersections.size())].t;
+            VonMisesFisherDistr vmf;
+            if (!sampleWithSensing_internalVmf(chosenChannel, chosenDistance, vmf))
+                return false;
+            localDir = vmf.sample(sampler->next2D());
+            rayDir = dirFrame.toWorld(localDir);
+        } else {
+            localDir = dirFrame.toLocal(rayDir);
+        }
+
+        /* PDF is MIS combination over the distances of all intersections 
+         * and over all channels if that was requested */
+        dirPdf = 0;
+        for (const Intersection &senseIts : senseIntersections) {
+            dirPdf += channelMean(channel,
+                        [=] (int chan) { return sampleWithSensing_internalPdf(
+                                           chan, senseIts.t, localDir.z); });
+        }
+        dirPdf /= senseIntersections.size();
+
+        return true;
+    }
+
+    inline bool sampleWithSensing_internalVmf(
+            int channel, Float distance, VonMisesFisherDistr &vmf) const {
+        Assert(channel>=0);
+        Float r = distance * m_p[channel];
+        Assert(r >= 0);
+        Float kappa = m_sampleWithSensingSafetyFactor * 2.5 / r;
+        if (!std::isfinite(kappa))
+            return false;
+        Assert(kappa >= 0);
+        //kappa = std::min(kappa, 1.0 / Epsilon); // clamp cosTheta in the range of Epsilon
+        vmf = VonMisesFisherDistr(kappa);
+        return true;
+    }
+
+    inline Float sampleWithSensing_internalPdf(
+            int channel, Float distance, Float cosTheta) const {
+        VonMisesFisherDistr vmf;
+        if (!sampleWithSensing_internalVmf(channel, distance, vmf))
+            return 0.0f;
+        return vmf.eval(cosTheta);
+    }
+
     virtual Float pdf(const Intersection &its,
             const Vector &d_out, const Scene *scene,
             const std::vector<Shape *> &shapes,
             const Intersection &newIts, int channel) const {
         Point startPoint = getStartPoint(its, d_out);
-        Vector sampledDirection = normalize(newIts.p - startPoint);
-        PhaseFunctionSamplingRecord pRec(MediumSamplingRecord(), d_out,
-                sampledDirection);
-        Float surfaceCosine = dot(pRec.wo, newIts.geoFrame.n);
-        Float absSurfCosine = math::abs(surfaceCosine);
-        if (absSurfCosine <= MTS_DSS_COSINE_CUTOFF) {
+        Vector rayDirUnnorm = newIts.p - startPoint;
+        Float t = rayDirUnnorm.length();
+        if (t <= RCPOVERFLOW)
             return 0.0f;
-        }
-        Float phasePdf = m_phase.pdf(pRec);
-        if (phasePdf <= RCPOVERFLOW)
+        Vector rayDir = rayDirUnnorm / t;
+
+        /* If we are calculating a pdf that was sampled by another sampling 
+         * strategy, then it is possible that we could not have possible 
+         * sampled this point ourselves due to the Epsilon when 
+         * intersecting rays with geometry to avoid self-intersections! */
+        Float rayMinT = ShapeKDTree::getAdaptiveRayMinT(Ray(startPoint, rayDir, its.time));
+        if (t < rayMinT)
             return 0.0f;
 
+        Float surfaceCosine = dot(rayDir, newIts.geoFrame.n);
+        Float absSurfCosine = math::abs(surfaceCosine);
+        if (absSurfCosine <= MTS_DSS_COSINE_CUTOFF)
+            return 0.0f; // sampling & pdf are badly conditioned -> bail out
+
+        Float dirPdf = pdfDir(its, d_out, scene, shapes, channel, rayDir);
+
+        // Intersection prob
         Float intersectionProb = m_itsSampler->pdf(newIts, scene,
-                startPoint, sampledDirection, its.time,
+                startPoint, rayDir, its.time,
                 shapes, its, d_out, channel, false);
         if (intersectionProb == 0)
             return 0.0f;
 
+        // Change of var
         Float r = distance(startPoint, newIts.p);
         AssertWarn(r <= m_itsSampler->getItsDistanceCutoff() * 1.01);
         Float solidAngleToAreaWeight = absSurfCosine/(r*r);
-        Float pdf = solidAngleToAreaWeight * phasePdf * intersectionProb;
-        if (!std::isfinite(pdf)) {
+        Float pdf = solidAngleToAreaWeight * dirPdf * intersectionProb;
+        if (!std::isfinite(pdf))
             return 0;
-        }
+
         return pdf;
     }
+
+    inline Float pdfDir(const Intersection &its,
+            const Vector &d_out, const Scene *scene,
+            const std::vector<Shape *> &shapes, int channel,
+            const Vector &rayDir) const {
+        // MIS combo between marginalized and 'sensing' for direction sampling
+        Float dirPdf;
+        Float margPdf = pdfMarginalized(d_out, rayDir);
+        Float sensePdf;
+        Vector nonConstRayDir(rayDir); // to make compiler happy
+        if (sampleWithSensing(
+                its, d_out, scene, shapes, channel, NULL, nonConstRayDir, sensePdf)) {
+            dirPdf = m_sensingWeight * sensePdf
+                    + (1 - m_sensingWeight) * margPdf;
+        } else {
+            dirPdf = margPdf;
+        }
+        return dirPdf;
+    }
+
+    inline Float pdfMarginalized(const Vector &d_out,
+            const Vector &rayDir) const {
+        PhaseFunctionSamplingRecord pRec(
+                MediumSamplingRecord(), d_out, rayDir);
+        Float dirPdf = m_phase.pdf(pRec);
+        if (dirPdf <= RCPOVERFLOW)
+            return 0.0f;
+        return dirPdf;
+    }
+
 
     MTS_DECLARE_CLASS();
 protected:
@@ -478,8 +779,18 @@ protected:
 
     const Spectrum m_sigmaTr;
 
+    const Spectrum m_p;
+
     /// In fractions of the (channel-wise minimal) reduced scattering length
     const Float m_retreatFactor;
+
+    /** When sampling with 'depth sensing': scale the VMF kappa by this 
+     * amount (<1 to widen peak) */
+    const Float m_sampleWithSensingSafetyFactor = 1;
+
+    /** Fraction of times to attempt 'depth sensing' sampling as opposed to 
+     * marginalized sampling */
+    const Float m_sensingWeight = 0.5;
 
     const ref<const IntersectionSampler> m_itsSampler;
 };
@@ -941,7 +1252,8 @@ public:
             Log(EWarn, "Inconsistent direction pdf: %e vs %e, rel %f",
                     thePdf, pdfCheck, (thePdf-pdfCheck)/thePdf);
 #endif
-        Assert(thePdf > 0);
+        Assert(thePdf >= 0);
+        AssertWarn(thePdf > 0);
         return thePdf;
     }
 
@@ -1231,7 +1543,7 @@ public:
                     DSSProjFrame::EDirectionSide,
                     lengthSampler_along, itsSampler.get()));
 
-            registerSampler(1.0, new PhaseFunctionSurfaceSampler(mu, sigmaTr, 0, itsSampler));
+            registerSampler(1.0, new PhaseFunctionSurfaceSampler(sigmaTr, p_spectrum, 0, itsSampler));
         }
 
         normalizeSamplers();
