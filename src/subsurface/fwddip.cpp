@@ -19,6 +19,7 @@
 #include <mitsuba/render/scene.h>
 #include <mitsuba/render/dss.h>
 #include <mitsuba/render/skdtree.h>
+#include <mitsuba/render/truncnorm.h>
 #include <mitsuba/core/plugin.h>
 #include <mitsuba/core/warp.h>
 #include <mitsuba/core/vmf.h>
@@ -224,15 +225,15 @@ public:
     virtual bool sample(int channel, Vector2 &x, Float cosTheta,
             const Vector2 &xLo, const Vector2 &xHi,
             Sampler *sampler, Float *thePdf = NULL) const {
-
-        // TODO: use xLo and xHi....
-
         Assert(channel>=0);
         Float p = m_p[channel];
         if (p == 0)
             return false;
 
         // We work in p=1
+
+        Float Rmax, dMin, dMax;
+        getSamplingBounds(channel, xLo, xHi, Rmax, dMin, dMax);
 
         /* Sampling R: MIS between uniform back-up and importance sampled 
          * weight. */
@@ -254,7 +255,7 @@ public:
 
         /* Sampling 'sideways' displacement d */
         Float stddev = dMaxSafetyScale * sqrt(R*R*R/6);
-        Float d = stddev * warp::squareToStdNormal(sampler->next2D()).x;
+        Float d = truncnorm(0, stddev, dMin, dMax, sampler);
 
         /* We should displace ourselves backwards along the outgoing
          * direction to sample the query point! */
@@ -273,17 +274,35 @@ public:
         Float p = m_p[channel];
         Float R = -x[0]*p; // displacement is backwards along the query point!
         Float d = x[1]*p;
+        Float Rmax, dMin, dMax;
+        getSamplingBounds(channel, xLo, xHi, Rmax, dMin, dMax);
         if (p == 0 || R < 0 || R > Rmax)
             return 0;
 
+        Assert(d >= dMin && d <= dMax); // check consistency of bounds
+
         Float stddev = dMaxSafetyScale * sqrt(R*R*R/6);
-        Float dPdf = warp::lineToStdNormalPdf(d / stddev) / stddev;
+        Float dPdf = truncnormPdf(0, stddev, dMin, dMax, d);
         Float RpdfImp = (Rmax - R) / (
                 (Rmin + R) * ((Rmin + Rmax)*log((Rmin+Rmax)/Rmin)  -  Rmax));
         Float RpdfUnif = 1. / Rmax;
         Float Rpdf = RpdfUnif * RUniformWeight  +  RpdfImp * (1 - RUniformWeight);
         Assert(std::isfinite(Rpdf) && Rpdf >= 0);
         return Rpdf * dPdf * p*p;
+    }
+
+    inline void getSamplingBounds(int channel,
+            const Vector2 &xLo, const Vector2 &xHi,
+            Float &Rmax, Float &dMin, Float &dMax) const {
+        Float p = m_p[channel];
+        // First dimension (u or d_out):
+        /* Remember: d_out is opposite direction than our 
+         * projection/sampling direction, so the Rmax bound is given by xLo 
+         * (which is negative) */
+        Rmax = std::min(RmaxDefault, -xLo[0] * p);
+        // Second dimension (v or 'sideways'):
+        dMin = p * xLo[1];
+        dMax = p * xHi[1];
     }
 
     MTS_DECLARE_CLASS();
@@ -301,7 +320,7 @@ protected:
      * above Rmax and with Rmin denoting the inflection point towards an 
      * asymptotically uniform distribution for R < Rmin (i.e. R -> 0). */
     const Float Rmin = 1e-10;
-    const Float Rmax = 0.1;
+    const Float RmaxDefault = 0.2; // gets clipped if bounding box is tighter
 
     /* Sample R uniformly between 0 and Rmax with this weight: */
     const Float RUniformWeight = 0.4;
