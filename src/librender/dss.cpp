@@ -715,14 +715,14 @@ static void getExtremalPlaneValues(const Vector &u, const Vector &v,
         xHi.x = std::max(xHi.x, dot(u, corner));
         xHi.y = std::max(xHi.y, dot(v, corner));
     }
+    SAssertWarn(xLo.isFinite());
+    SAssertWarn(xHi.isFinite());
+
     /* Because we only get called when the point p is actually on the
      * surface, we should have only negative xLo values and only positive
      * xHi values. */
     SAssertWarn(xLo.x <= 0 && xLo.y <= 0);
     SAssertWarn(xHi.x >= 0 && xHi.y >= 0);
-
-    SAssertWarn(xLo.isFinite());
-    SAssertWarn(xHi.isFinite());
 }
 
 Float ProjSurfaceSampler::sample(const Intersection &its,
@@ -749,16 +749,6 @@ Float ProjSurfaceSampler::sample(const Intersection &its,
     Vector2 x;
     if (!m_planeSampler->sample(chosenChannel, x, cosTheta, xLo, xHi, sampler))
         return 0.0f;
-    Float planePdf = channelMean(channel,
-                    [=] (int chan) { return m_planeSampler->pdf(
-                                       chan, x, cosTheta, xLo, xHi); });
-
-    if (!std::isfinite(planePdf) || planePdf <= 0) {
-        /* Note: planePdf shouldn't be 0 because we already could sample 
-         * our 'own' channel! */
-        Log(EWarn, "Invalid plane pdf: %e", planePdf);
-        return 0.0f;
-    }
 
     Point o = its.p + x[0]*u + x[1]*v;
 
@@ -822,7 +812,19 @@ Float ProjSurfaceSampler::sample(const Intersection &its,
         return 0.0f;
     }
 
-    /* pdf in area measure of the surface of the object */
+    /* MIS pdf for the 2D point on the plane */
+    Float planePdf = channelMean(channel,
+                    [=] (int chan) { return m_planeSampler->pdf(
+                                       chan, x, cosTheta, xLo, xHi); });
+
+    if (!std::isfinite(planePdf) || planePdf <= 0) {
+        /* Note: planePdf shouldn't be 0 because we already could sample 
+         * our 'own' channel! */
+        Log(EWarn, "Invalid plane pdf: %e", planePdf);
+        return 0.0f;
+    }
+
+    /* Pdf in area measure of the surface of the object */
     Float thePdf = planePdf * intersectionProb
             * math::abs(dot(n_geo, projectionDir));
 #ifdef MTS_DSS_PDF_CHECK
@@ -855,6 +857,10 @@ Float ProjSurfaceSampler::pdf(const Intersection &its,
 
     Vector delta = newIts.p - its.p;
     Vector2 x(dot(delta,u), dot(delta,v));
+
+    // Check consistency of extremal plane values: (reminder: xLo < 0)
+    Assert(x[0] >= xLo[0]*(1+Epsilon)  &&  x[0] <= xHi[0]*(1+Epsilon));
+    Assert(x[1] >= xLo[1]*(1+Epsilon)  &&  x[1] <= xHi[1]*(1+Epsilon));
 
     /* Pdf of the point in the tangent plane in its area measure, taking
      * into account that we could have sampled from any channel */
