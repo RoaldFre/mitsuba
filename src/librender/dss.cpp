@@ -117,7 +117,8 @@ Float DirectSamplingSubsurface::handleImplicitBounds(
 DirectSamplingSubsurface::DirectSamplingSubsurface(const Properties &props) :
             Subsurface(props) {
     /* Num proposals for sample importance resampling. */
-    m_numSIR = props.getSize("numSIR", 1);
+    m_numSIRsurface = props.getSize("numSIRsurface", 1);
+    m_SIRnonSurfaceOversamplingFactor = props.getSize("SIRnonSurfaceOversamplingFactor", 1);
 
     /* Perform direct sampling of the light sources? */
     m_directSampling = props.getBoolean("directSampling", true);
@@ -145,12 +146,15 @@ DirectSamplingSubsurface::DirectSamplingSubsurface(const Properties &props) :
     Float cutoffNumAbsorptionLengths = props.getFloat(
             "cutoffNumAbsorptionLengths", 10);
 
-    if (m_numSIR > 1 && !(m_directSampling && m_directSamplingMIS)) {
-        Log(EWarn, "ATTENTION: numSIR is > 1 (it's %d), which means that "
-                "direct sampling with MIS weighting gets FORCED, even though "
-                "those options were not requested! (requested: direct "
-                "sampling %d, MIS %d)",
-                m_numSIR, m_directSampling, m_directSamplingMIS);
+    if ((m_numSIRsurface > 1 || m_SIRnonSurfaceOversamplingFactor > 1)
+            && !(m_directSampling && m_directSamplingMIS)) {
+        Log(EWarn, "ATTENTION: numSIRsurface or "
+                "m_SIRnonSurfaceOversamplingFactor is > 1 (they're %d and %d), "
+                "which means that direct sampling with MIS weighting gets "
+                "FORCED, even though those options were not requested! "
+                "(requested: direct sampling %d, MIS %d)",
+                m_numSIRsurface, m_SIRnonSurfaceOversamplingFactor,
+                m_directSampling, m_directSamplingMIS);
         m_directSampling = true;
         m_directSamplingMIS = true;
     }
@@ -181,7 +185,8 @@ DirectSamplingSubsurface::DirectSamplingSubsurface(const Properties &props) :
 DirectSamplingSubsurface::DirectSamplingSubsurface(Stream *stream,
         InstanceManager *manager) :
             Subsurface(stream, manager) {
-    m_numSIR = stream->readSize();
+    m_numSIRsurface = stream->readSize();
+    m_SIRnonSurfaceOversamplingFactor = stream->readSize();
     m_directSampling = stream->readBool();
     m_directSamplingMIS = stream->readBool();
     m_singleChannel = stream->readBool();
@@ -198,7 +203,8 @@ DirectSamplingSubsurface::DirectSamplingSubsurface(Stream *stream,
 void DirectSamplingSubsurface::serialize(Stream *stream,
         InstanceManager *manager) const {
     Subsurface::serialize(stream, manager);
-    stream->writeSize(m_numSIR);
+    stream->writeSize(m_numSIRsurface);
+    stream->writeSize(m_SIRnonSurfaceOversamplingFactor);
     stream->writeBool(m_directSampling);
     stream->writeBool(m_directSamplingMIS);
     stream->writeBool(m_singleChannel);
@@ -1639,7 +1645,7 @@ Spectrum DirectSamplingSubsurface::Li_internal(const Scene *scene, Sampler *samp
     char extraParams[extraParamsSize()];
     Spectrum LiDirect;
     bool haveIndirect;
-    if (m_numSIR > 1) {
+    if (m_numSIRsurface > 1 || m_SIRnonSurfaceOversamplingFactor > 1) {
         haveIndirect = indirectSample_SIR(scene, sampler, its_out, d_out,
                 channelWeight, channelWeightedThroughput, LiDirect,
                 indirectSample, extraParams);
@@ -1834,13 +1840,14 @@ bool DirectSamplingSubsurface::indirectSample_SIR(
         return false;
 
     std::vector<IndirectSamplingRecord> samples;
-    samples.reserve(m_numSIR);
+    size_t totalSIRattempts = m_numSIRsurface * m_SIRnonSurfaceOversamplingFactor;
+    samples.reserve(totalSIRattempts);
     size_t parSize = extraParamsSize();
-    char *paramSamples = (parSize == 0 ? NULL : new char[m_numSIR * parSize]);
+    char *paramSamples = (parSize == 0 ? NULL : new char[totalSIRattempts * parSize]);
     DiscreteDistribution sampleWeights;
-    sampleWeights.reserve(m_numSIR);
+    sampleWeights.reserve(totalSIRattempts);
 
-    for (size_t i = 0; i < m_numSIR; i++) {
+    for (size_t i = 0; i < m_numSIRsurface; i++) {
         IndirectSamplingRecord s;
         void *extraPars = paramSamples + i*parSize;
         Intersection its_in;
@@ -1861,151 +1868,155 @@ bool DirectSamplingSubsurface::indirectSample_SIR(
         if (thisSurfacePdf == 0)
             continue;
 
-        do {
-            Assert(m_directSampling && m_directSamplingMIS);
+        /* Inner SIR loop over all non-surface sampling (because that is 
+         * typically cheaper, so we can afford more SIR samples there */
+        for (size_t j = 0; j < m_SIRnonSurfaceOversamplingFactor; j++) {
+            do {
+                Assert(m_directSampling && m_directSamplingMIS);
 
-            /* DIRECT SAMPLING */
+                /* DIRECT SAMPLING */
 
-            /* This seems incredibly wasteful (to do direct lighting
-             * estimation for each tentative sample), but remember that
-             * we only shoot one shadow ray here, and sampling points
-             * on the surface typically shoot many projection rays
-             * (collecting all intersections, although these rays have
-             * limited range).  Also, there's not really a way to MIS
-             * sample the direct lighting of the single, final SIR
-             * sample; because we cannot easily compute the actual pdf
-             * in general that is used for SIR (which would need to be
-             * marginalized over all possible tentative SIR sample
-             * generations!) */
-            Spectrum directLi, directBsdfVal;
-            char directExtraParams[extraParamsSize()];
-            EMeasure lightSamplingMeasure;
-            EMeasure directBsdfMeasure;
-            Spectrum directPdf = sampleDirect(scene, sampler, its_in,
+                /* This seems incredibly wasteful (to do direct lighting
+                 * estimation for each tentative sample), but remember that
+                 * we only shoot one shadow ray here, and sampling points
+                 * on the surface typically shoot many projection rays
+                 * (collecting all intersections, although these rays have
+                 * limited range).  Also, there's not really a way to MIS
+                 * sample the direct lighting of the single, final SIR
+                 * sample; because we cannot easily compute the actual pdf
+                 * in general that is used for SIR (which would need to be
+                 * marginalized over all possible tentative SIR sample
+                 * generations!) */
+                Spectrum directLi, directBsdfVal;
+                char directExtraParams[extraParamsSize()];
+                EMeasure lightSamplingMeasure;
+                EMeasure directBsdfMeasure;
+                Spectrum directPdf = sampleDirect(scene, sampler, its_in,
+                        its_out, d_out, channelWeightedThroughput, d_in, rec_wi,
+                        directExtraParams, directBsdfMeasure, lightSamplingMeasure,
+                        directBsdfVal, directLi);
+                if (directPdf.isZero())
+                    break;
+
+                /* Prevent light leaks due to the use of shading normals */
+                if (dot(its_in.geoFrame.n, rec_wi)*dot(n_in, rec_wi) <= 0
+                        || dot(its_in.geoFrame.n, d_in)*dot(n_in, d_in) <= 0)
+                    break;
+
+                /* Evaluate BSSRDF */
+                Spectrum directBssrdfVal = bssrdf(scene, p_in, d_in, n_in, p_out,
+                        d_out, n_out, directExtraParams);
+                if (directBssrdfVal.isZero())
+                    break;
+
+                /* MIS weighting of the sampling of d_in, rec_wi and
+                 * directExtraParams */
+                Spectrum directMISpdf;
+                if (lightSamplingMeasure == EDiscrete) {
+                     // discrete light source, could not have been sampled indirectly
+                    directMISpdf = directPdf;
+                } else {
+                    Spectrum indirectPdf = pdfIndirect(scene, its_in,
+                            its_out, d_out, channelWeightedThroughput, d_in, rec_wi,
+                            directExtraParams, directBsdfMeasure);
+
+                    directMISpdf = directPdf + indirectPdf;
+                }
+
+                Spectrum directWeight =
+                        channelWeight * directBsdfVal * directBssrdfVal
+                                * directMISpdf.invertButKeepZero() / thisSurfacePdf;
+
+#if MTS_DSS_CHECK_VARIANCE_SOURCES
+                Spectrum thisWeight = directWeight;
+                if (thisWeight.maxAbsolute()
+                        > MTS_DSS_CHECK_VARIANCE_SOURCES_THRESHOLD) {
+                    cerr << "["<<thisWeight.maxAbsolute()<<"] direct samp " << thisWeight.toString() << endl;
+                    checkSourcesOfVariance(scene, channelWeightedThroughput,
+                            its_out, d_out, its_in, d_in, rec_wi,
+                            directExtraParams, directBssrdfVal, directBsdfVal,
+                            directBsdfMeasure, sampler, true);
+                    checkSourcesOfVariance(scene, channelWeightedThroughput,
+                            its_out, d_out, its_in, d_in, rec_wi,
+                            directExtraParams, directBssrdfVal, directBsdfVal,
+                            directBsdfMeasure, sampler, false);
+                }
+#endif
+                // expected value estimator for direct lighting
+                LiDirectContribution += directLi * directWeight / totalSIRattempts;
+            } while (false); // hack for break;
+
+
+
+            /* INDIRECT SAMPLING to generate tentative SIR samples */
+
+            /* Sample directions and extra parameters */
+            Spectrum bsdfVal;
+            Spectrum indirectPdf = sampleIndirect(scene, sampler, its_in,
                     its_out, d_out, channelWeightedThroughput, d_in, rec_wi,
-                    directExtraParams, directBsdfMeasure, lightSamplingMeasure,
-                    directBsdfVal, directLi);
-            if (directPdf.isZero())
-                break;
+                    extraPars, bsdfMeasure, bsdfVal);
+            if (indirectPdf.isZero())
+                continue;
 
             /* Prevent light leaks due to the use of shading normals */
             if (dot(its_in.geoFrame.n, rec_wi)*dot(n_in, rec_wi) <= 0
                     || dot(its_in.geoFrame.n, d_in)*dot(n_in, d_in) <= 0)
-                break;
+                continue;
 
             /* Evaluate BSSRDF */
-            Spectrum directBssrdfVal = bssrdf(scene, p_in, d_in, n_in, p_out,
-                    d_out, n_out, directExtraParams);
-            if (directBssrdfVal.isZero())
-                break;
+            Spectrum bssrdfVal = bssrdf(scene, p_in, d_in, n_in, p_out, d_out,
+                    n_out, extraPars);
+            if (bssrdfVal.isZero())
+                continue;
 
-            /* MIS weighting of the sampling of d_in, rec_wi and
-             * directExtraParams */
-            Spectrum directMISpdf;
-            if (lightSamplingMeasure == EDiscrete) {
-                 // discrete light source, could not have been sampled indirectly
-                directMISpdf = directPdf;
+            /* Weight factor (excluding the directions&extraParams pdf) */
+            Spectrum factor = channelWeight * bsdfVal * bssrdfVal
+                    / thisSurfacePdf;
+            if (factor.isZero())
+                continue;
+
+            /* pdf for the direct Li contribution of the 'indirectly sampled'
+             * part */
+            Spectrum pdfForDirectContrib;
+            if (dot(rec_wi, n_in) < 0) {
+                /* Internal reflection, guaranteed not to find direct
+                 * contribution (because we don't allow light sources within
+                 * our medium -- TODO: for now?), so no need to calculate
+                 * direct pdf as it will be zero. */
+                pdfForDirectContrib = indirectPdf;
             } else {
-                Spectrum indirectPdf = pdfIndirect(scene, its_in,
-                        its_out, d_out, channelWeightedThroughput, d_in, rec_wi,
-                        directExtraParams, directBsdfMeasure);
-
-                directMISpdf = directPdf + indirectPdf;
+                Assert(m_directSamplingMIS);
+                /* Compute the MIS pdf for the direct Li contribution for this
+                 * indirect sampling in combination with direct sampling (2
+                 * sample MIS: 1 direct, 1 indirect -- the direct sample gets
+                 * taken below) */
+                Spectrum directPdf = pdfDirect(scene, its_in, its_out,
+                        d_out, channelWeightedThroughput, d_in, rec_wi,
+                        extraPars, bsdfMeasure); // note: this shoots a shadow ray!
+                pdfForDirectContrib = directPdf + indirectPdf;
             }
+            // Store the tentative sample
+            s.its_in      = its_in;
+            s.d_in        = d_in;
+            s.rec_wi      = rec_wi;
+            s.bsdfMeasure = bsdfMeasure;
+            s.weightForDirectContrib   = factor * pdfForDirectContrib.invertButKeepZero();
+            s.weightForIndirectContrib = factor * indirectPdf.invertButKeepZero();
 
-            Spectrum directWeight =
-                    channelWeight * directBsdfVal * directBssrdfVal
-                            * directMISpdf.invertButKeepZero() / thisSurfacePdf;
-
-#if MTS_DSS_CHECK_VARIANCE_SOURCES
-            Spectrum thisWeight = directWeight;// / m_numSIR;
-            if (thisWeight.maxAbsolute()
-                    > MTS_DSS_CHECK_VARIANCE_SOURCES_THRESHOLD) {
-                cout << "direct samp " << thisWeight.toString() << endl;
-                checkSourcesOfVariance(scene, channelWeightedThroughput,
-                        its_out, d_out, its_in, d_in, rec_wi,
-                        directExtraParams, directBssrdfVal, directBsdfVal,
-                        directBsdfMeasure, sampler, true);
-                checkSourcesOfVariance(scene, channelWeightedThroughput,
-                        its_out, d_out, its_in, d_in, rec_wi,
-                        directExtraParams, directBssrdfVal, directBsdfVal,
-                        directBsdfMeasure, sampler, false);
+            Float theSampleWeight = s.weightForIndirectContrib.maxAbsolute();
+            if (!std::isfinite(theSampleWeight) || theSampleWeight < 0) {
+                Log(EWarn, "Problematic sample weight: %e", theSampleWeight);
+            } else if (theSampleWeight > 0) {
+                /* Store the tentative sample */
+                sampleWeights.append(theSampleWeight);
+                samples.push_back(s);
+                Assert(math::abs(s.its_in.shFrame.n.length() - 1) < Epsilon);
             }
-#endif
-            // expected value estimator for direct lighting
-            LiDirectContribution += directLi * directWeight / m_numSIR;
-        } while (false); // hack for break;
-
-
-
-        /* INDIRECT SAMPLING to generate tentative SIR samples */
-
-        /* Sample directions and extra parameters */
-        Spectrum bsdfVal;
-        Spectrum indirectPdf = sampleIndirect(scene, sampler, its_in,
-                its_out, d_out, channelWeightedThroughput, d_in, rec_wi,
-                extraPars, bsdfMeasure, bsdfVal);
-        if (indirectPdf.isZero())
-            continue;
-
-        /* Prevent light leaks due to the use of shading normals */
-        if (dot(its_in.geoFrame.n, rec_wi)*dot(n_in, rec_wi) <= 0
-                || dot(its_in.geoFrame.n, d_in)*dot(n_in, d_in) <= 0)
-            continue;
-
-        /* Evaluate BSSRDF */
-        Spectrum bssrdfVal = bssrdf(scene, p_in, d_in, n_in, p_out, d_out,
-                n_out, extraPars);
-        if (bssrdfVal.isZero())
-            continue;
-
-        /* Weight factor (excluding the directions&extraParams pdf) */
-        Spectrum factor = channelWeight * bsdfVal * bssrdfVal
-                / thisSurfacePdf;
-        if (factor.isZero())
-            continue;
-
-        /* pdf for the direct Li contribution of the 'indirectly sampled'
-         * part */
-        Spectrum pdfForDirectContrib;
-        if (dot(rec_wi, n_in) < 0) {
-            /* Internal reflection, guaranteed not to find direct
-             * contribution (because we don't allow light sources within
-             * our medium -- TODO: for now?), so no need to calculate
-             * direct pdf as it will be zero. */
-            pdfForDirectContrib = indirectPdf;
-        } else {
-            Assert(m_directSamplingMIS);
-            /* Compute the MIS pdf for the direct Li contribution for this
-             * indirect sampling in combination with direct sampling (2
-             * sample MIS: 1 direct, 1 indirect -- the direct sample gets
-             * taken below) */
-            Spectrum directPdf = pdfDirect(scene, its_in, its_out,
-                    d_out, channelWeightedThroughput, d_in, rec_wi,
-                    extraPars, bsdfMeasure); // note: this shoots a shadow ray!
-            pdfForDirectContrib = directPdf + indirectPdf;
-        }
-        // Store the tentative sample
-        s.its_in      = its_in;
-        s.d_in        = d_in;
-        s.rec_wi      = rec_wi;
-        s.bsdfMeasure = bsdfMeasure;
-        s.weightForDirectContrib   = factor * pdfForDirectContrib.invertButKeepZero();
-        s.weightForIndirectContrib = factor * indirectPdf.invertButKeepZero();
-
-        Float theSampleWeight = s.weightForIndirectContrib.maxAbsolute();
-        if (!std::isfinite(theSampleWeight) || theSampleWeight < 0) {
-            Log(EWarn, "Problematic sample weight: %e", theSampleWeight);
-        } else if (theSampleWeight > 0) {
-            /* Store the tentative sample */
-            sampleWeights.append(theSampleWeight);
-            samples.push_back(s);
-            Assert(math::abs(s.its_in.shFrame.n.length() - 1) < Epsilon);
         }
     }
 
     Assert(sampleWeights.size() == samples.size());
-    Assert(samples.size() <= m_numSIR);
+    Assert(samples.size() <= totalSIRattempts);
 
     if (samples.size() == 0)
         return false;
@@ -2020,8 +2031,8 @@ bool DirectSamplingSubsurface::indirectSample_SIR(
 
     indirectSample = samples[idx];
     /* Update weights with the discrete SIR prob */
-    indirectSample.weightForDirectContrib   /= (m_numSIR * sampleProb);
-    indirectSample.weightForIndirectContrib /= (m_numSIR * sampleProb);
+    indirectSample.weightForDirectContrib   /= (totalSIRattempts * sampleProb);
+    indirectSample.weightForIndirectContrib /= (totalSIRattempts * sampleProb);
     if (paramSamples) {
         memcpy(extraParams, paramSamples + idx*parSize, parSize);
         delete[] paramSamples;

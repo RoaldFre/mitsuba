@@ -1171,7 +1171,15 @@ protected:
 
 
     Float m_eta; /// intIOR/extIOR
-    size_t m_numSIR;
+    size_t m_numSIRsurface; /// See also m_SIRnonSurfaceOversamplingFactor!
+    /** Optional extra SIR the sampling of extra params and directions 
+     * (i.e. everything except the surface sampling), because this is 
+     * typically cheaper then sampling points on the surface (no or less 
+     * projection rays are needed).
+     * There are m_numSIRsurface number of tentative surface samples, but each 
+     * such sample gets m_SIRnonSurfaceOversamplingFactor individual 
+     * tentative extraParams and direction samples. */
+    size_t m_SIRnonSurfaceOversamplingFactor;
     ref<RadianceSources> m_sources;
     int m_sourcesIndex;
     int m_sourcesResID;
