@@ -28,69 +28,36 @@
 #include "fwdscat.h"
 #include "dipoleUtil.h"
 
+/* For the soft inverse sample ray cosine sampling */
+#define MARG_INVSAMPLER_EPSILON 1e-5f
+
 MTS_NAMESPACE_BEGIN
 
-/**
- * MIS balanced combination of phase functions.
- */
-class PhaseCombo {
-public:
-    PhaseCombo() { }
-    PhaseCombo(size_t size) :
-            m_dist(size), m_phases(size) { }
-    PhaseCombo(const std::vector<std::pair<Float, PhaseFunction*>> fs) :
-            m_dist(fs.size()), m_phases(fs.size()) {
-        for (auto f : fs)
-            append(f.first, f.second);
-        normalize();
-    }
+/// Helper functions to sample proportinal to 1/(xEpsilon + x) for x on [0..xMax]
+static inline Float inverseSampler_sample(Float xEps, Float xMax, Float u) {
+    SAssert(u >= 0 && u <= 1);
+    return -xEps  -  (xMax+xEps) * gsl_sf_lambert_W0(
+                -exp((-u*xMax - xEps)/(xEps + xMax))
+                    * pow(xEps/(xEps + xMax), (Float)1.-u));
+}
+static inline Float inverseSampler_pdf(Float xEps, Float xMax, Float x) {
+    if (x <= 0 || x >= xMax)
+        return 0;
+    return (xMax - x) / (
+            (xEps + x) * ((xEps + xMax)*log((xEps+xMax)/xEps)  -  xMax));
+}
 
-    void append(Float weight, PhaseFunction *f) {
-        m_dist.append(weight);
-        m_phases.push_back(f);
-    }
+/// Helper functions to sample according to pdf(x) = -log(x) for x on [0..1]
+static inline Float logDivergenceSampler_sample(Float u) {
+    SAssert(u >= 0 && u <= 1);
+    return -u/gsl_sf_lambert_Wm1(-u/M_E);
+}
+static inline Float logDivergenceSampler_pdf(Float x) {
+    if (x <= 0 || x >= 1)
+        return 0;
+    return -log(x);
+}
 
-    void normalize() {
-        m_dist.normalize();
-    }
-
-    void sample(PhaseFunctionSamplingRecord &pRec, Sampler *sampler) const {
-        Float _prob;
-        int i = m_dist.sample(sampler->next1D(), _prob);
-        SAssert(_prob > 0); /* we assume that sampling is always succesful */
-        m_phases[i]->sample(pRec, sampler);
-    }
-
-    Float pdf(const PhaseFunctionSamplingRecord &pRec) const {
-        Float pdf = 0;
-        for (size_t i = 0; i < m_phases.size(); i++) {
-            Float phasePdf = m_phases[i]->pdf(pRec);
-            SAssert(std::isfinite(phasePdf));
-            SAssert(std::isfinite(m_dist[i]));
-            pdf += m_dist[i] * m_phases[i]->pdf(pRec);
-        }
-        SAssert(std::isfinite(pdf));
-        SAssert(pdf >= 0);
-        return pdf;
-    }
-
-protected:
-    DiscreteDistribution m_dist;
-    ref_vector<PhaseFunction> m_phases;
-};
-
-/* Phase function fitted to integral of multiple scatter phase function
- * integrated over 0 to 1 scatterings */
-// Fitted to integral of small-ps weight, for ps=0..1
-Float comboData[][2] = {
-    // Fit with unmodified weight '9' in exp
-    /*              weight                            mu                 */
-    { .500007021624456374828679132905, 0.0876300947606325545901181156815},
-    { .499992978375543625171320867095, 0.0234801123390553423893714938526}
-    // Fit with modified weight '9/2' in exp
-    //{ 0.511657417969959158991192292700, 0.173587737684146627907042267638},
-    //{ 0.488342582030040841008807707300, 0.0456028760012490017906164939990}
-};
 
 class MTS_EXPORT_RENDER FwdDipSmallLengthRadialSampler2D : public Sampler1D {
 public:
@@ -246,9 +213,7 @@ public:
             u = (u - RUniformWeight) / (1 - RUniformWeight);
             /* R is sampled according to "1/(Rmin + R) with a cutoff at Rmax" 
              * (see pdf() for the exact pdf) */
-            R = -Rmin  -  (Rmax+Rmin) * gsl_sf_lambert_W0(
-                        -exp((-u*Rmax - Rmin)/(Rmin + Rmax))
-                            * pow(Rmin/(Rmin + Rmax), (Float)1.-u));
+            R = inverseSampler_sample(Rmin, Rmax, u);
         }
         Assert(std::isfinite(R));
         AssertWarn(R >= 0 && R <= Rmax);
@@ -279,12 +244,11 @@ public:
         if (p == 0 || R < 0 || R > Rmax)
             return 0;
 
-        Assert(d >= dMin && d <= dMax); // check consistency of bounds
+        AssertWarn(d >= dMin*(1+Epsilon) && d <= dMax*(1+Epsilon)); // check consistency of bounds (note: dMin < 0, hence the +Epsilon!)
 
         Float stddev = dMaxSafetyScale * sqrt(R*R*R/6);
         Float dPdf = truncnormPdf(0, stddev, dMin, dMax, d);
-        Float RpdfImp = (Rmax - R) / (
-                (Rmin + R) * ((Rmin + Rmax)*log((Rmin+Rmax)/Rmin)  -  Rmax));
+        Float RpdfImp = inverseSampler_pdf(Rmin, Rmax, R);
         Float RpdfUnif = 1. / Rmax;
         Float Rpdf = RpdfUnif * RUniformWeight  +  RpdfImp * (1 - RUniformWeight);
         Assert(std::isfinite(Rpdf) && Rpdf >= 0);
@@ -369,37 +333,12 @@ inline IntersectionWeightFunc fwdDipSmallLengthWeightFunc(
     };
 }
 
-class MTS_EXPORT_RENDER PhaseFunctionSurfaceSampler : public SurfaceSampler {
+class MTS_EXPORT_RENDER RayDirectionSurfaceSampler : public SurfaceSampler {
 public:
-    PhaseFunctionSurfaceSampler(const Spectrum &sigmaTr, const Spectrum &p,
+    RayDirectionSurfaceSampler(const Spectrum &sigmaTr, const Spectrum &p,
             Float retreatFactor, const IntersectionSampler *itsSampler)
             : m_sigmaTr(sigmaTr), m_p(p), m_retreatFactor(retreatFactor),
-              m_itsSampler(itsSampler) {
-        /* Initialize phase function for marginalized sampling */
-        size_t N = sizeof(comboData)/sizeof(*comboData);
-
-        // MIS: Forward log divergent peak
-        Properties phaseProps("fwddip_helper");
-        PhaseFunction *phase = static_cast<PhaseFunction *>(
-                PluginManager::getInstance()->createObject(
-                    MTS_CLASS(PhaseFunction), phaseProps));
-        m_phase.append(1.0, phase);
-
-        // MIS: Gaussian tail combo
-        Log(EInfo, "Initializing phase function with %d components", N);
-        for (size_t i = 0; i < N; i++) {
-            Properties phaseProps("forward_gaussian");
-            Float thisMu = comboData[i][1];
-            phaseProps.setFloat("g", 1 - thisMu);
-            PhaseFunction *phase = static_cast<PhaseFunction *>(
-                    PluginManager::getInstance()->createObject(
-                        MTS_CLASS(PhaseFunction), phaseProps));
-            phase->configure();
-            m_phase.append(comboData[i][0], phase);
-        }
-
-        m_phase.normalize();
-    }
+              m_itsSampler(itsSampler) { }
 
     virtual Float sample(const Intersection &its,
             const Vector &d_out, const Scene *scene,
@@ -481,15 +420,37 @@ public:
         return dirPdf;
     }
 
+    /** Sample direction with the length of R marginalized over 0 to 1 
+     *  reduced scattering length. */
     inline void sampleMarginalized(const Vector &d_out,
             Sampler *sampler, Vector &rayDir, Float &dirPdf) const {
         /* Note: we are marginalized up to 1 reduced scattering length, 
          * which means that we are no longer dependent on the actual medium 
          * parameters here. */
-        PhaseFunctionSamplingRecord pRec(MediumSamplingRecord(), d_out);
-        m_phase.sample(pRec, sampler);
-        dirPdf = m_phase.pdf(pRec);
-        rayDir = pRec.wo;
+
+        Float cosTheta; // dot(rayDir, d_out)
+        /* Note: d_out == -w_o^i in text, and \hat{r} == -rayDir -> 
+         * cosTheta stays within [-1..0] and is close to -1. */
+        Float u = sampler->next1D();
+        if (u < 0.5) {
+            u = 2*u;
+            // inverse logarithm divergence
+            cosTheta = logDivergenceSampler_sample(u) - 1;
+        } else {
+            u = 2*(u-0.5);
+            // soft 1/x divergence
+            cosTheta = inverseSampler_sample(MARG_INVSAMPLER_EPSILON, 1.0f, u) - 1;
+        }
+        Float sinTheta = math::safe_sqrt(1 - cosTheta*cosTheta);
+
+        Float phi = sampler->next1D() * TWO_PI;
+        Float sinPhi,cosPhi;
+        math::sincos(phi, &sinPhi, &cosPhi);
+
+        Frame outFrame(d_out);
+        rayDir = outFrame.toWorld(Vector(cosPhi*sinTheta, sinPhi*sinTheta, cosTheta));
+
+        dirPdf = pdfMarginalized(d_out, rayDir);
     }
 
 
@@ -773,9 +734,16 @@ public:
 
     inline Float pdfMarginalized(const Vector &d_out,
             const Vector &rayDir) const {
-        PhaseFunctionSamplingRecord pRec(
-                MediumSamplingRecord(), d_out, rayDir);
-        Float dirPdf = m_phase.pdf(pRec);
+        /* Note: we are marginalized up to 1 reduced scattering length, 
+         * which means that we are no longer dependent on the actual medium 
+         * parameters here. */
+        Float cosTheta = dot(d_out, rayDir);
+        if (cosTheta >= 0 || cosTheta <= -1 /* <- for roundoff issues */)
+            return 0.0f;
+        Float x = cosTheta + 1; // back to [0..1] with peak at 0
+        Float logCosPdf = logDivergenceSampler_pdf(x);
+        Float invCosPdf = inverseSampler_pdf(MARG_INVSAMPLER_EPSILON, 1.0f, x);
+        Float dirPdf = 0.5 * (logCosPdf + invCosPdf) * INV_TWOPI;
         if (dirPdf <= RCPOVERFLOW)
             return 0.0f;
         return dirPdf;
@@ -792,9 +760,7 @@ protected:
     }
 
     /// Virtual destructor
-    virtual ~PhaseFunctionSurfaceSampler() { }
-
-    PhaseCombo m_phase;
+    virtual ~RayDirectionSurfaceSampler() { }
 
     const Spectrum m_sigmaTr;
 
@@ -1497,9 +1463,10 @@ public:
                             makeExactDiffusionDipoleDistanceWeight(
                             m_sigmaA, m_sigmaS, m_g, m_eta)),
                     m_itsDistanceCutoff);
-            ref<IntersectionSampler> itsSamplerUniform =
+
+            ref<IntersectionSampler> itsSamplerEffectiveExtinction =
                     new WeightIntersectionSampler(distanceWeightWrapper(
-                            makeConstantDistanceWeight()),
+                            makeExponentialDistanceWeight(sigmaTr)),
                     m_itsDistanceCutoff);
 
             ref<IntersectionSampler> itsSamplerFwdDipSmallLenR2 =
@@ -1514,7 +1481,7 @@ public:
                     m_itsDistanceCutoff);
 
             std::vector<std::pair<Float, const IntersectionSampler*> > is;
-            is.push_back(std::make_pair(0.1, itsSamplerUniform.get()));
+            is.push_back(std::make_pair(0.1, itsSamplerEffectiveExtinction.get()));
             is.push_back(std::make_pair(1.0, itsSamplerExactJensenDipole.get()));
             is.push_back(std::make_pair(0.5, itsSamplerFwdDipSmallLenR2.get()));
             is.push_back(std::make_pair(0.5, itsSamplerFwdDipSmallLenR3.get()));
@@ -1524,15 +1491,6 @@ public:
             /* Plane projection sampler */
             ref<TangentSampler2D> exactJensenDipoleSampler = new RadialSampler2D(
                     new RadialExactDipoleSampler2D(m_sigmaA, m_sigmaS, m_g, m_eta));
-
-
-
-            // XXX XXX TODO drop?
-            ref<TangentSampler2D> smallLengthSampler = new RadialSampler2D(
-                    new FwdDipSmallLengthRadialSampler2D(m_sigmaS, m_g));
-
-
-
 
             std::vector<std::pair<Float, const TangentSampler2D*> > perp;
             perp.push_back(std::make_pair(smallLengthWeight,
@@ -1546,23 +1504,34 @@ public:
             along.push_back(std::make_pair(jensenWeight,
                     exactJensenDipoleSampler));
 
-            ref<TangentSampler2D> lengthSampler_perp =
+            ref<TangentSampler2D> smallLengthSampler_perp =
                     new MISTangentSampler2D(perp);
-            ref<TangentSampler2D> lengthSampler_along =
+            ref<TangentSampler2D> smallLengthSampler_along =
                     new MISTangentSampler2D(along);
 
 
+#if 1
             registerSampler(1.0, new ProjSurfaceSampler(
                     DSSProjFrame::EDirectionDirection,
-                    lengthSampler_perp, itsSampler.get()));
-            registerSampler(1.0, new ProjSurfaceSampler(
+                    smallLengthSampler_perp, itsSampler.get()));
+#endif
+#if 1
+            /* Double the weight because this is the most 'natural' sampler 
+             * for truly near-planar boundaries */
+            registerSampler(2.0, new ProjSurfaceSampler(
                     DSSProjFrame::EDirectionOut,
-                    lengthSampler_along, itsSampler.get()));
+                    smallLengthSampler_along, itsSampler.get()));
+#endif
+#if 1
             registerSampler(1.0, new ProjSurfaceSampler(
                     DSSProjFrame::EDirectionSide,
-                    lengthSampler_along, itsSampler.get()));
+                    smallLengthSampler_along, itsSampler.get()));
+#endif
 
-            registerSampler(1.0, new PhaseFunctionSurfaceSampler(sigmaTr, p_spectrum, 0, itsSampler));
+#if 1
+            registerSampler(1.0, new RayDirectionSurfaceSampler(sigmaTr, p_spectrum, 0, itsSampler));
+            //registerSampler(1.0, new RayDirectionSurfaceSampler(sigmaTr, p_spectrum, ShadowEpsilon, itsSampler));
+#endif
         }
 
         normalizeSamplers();
@@ -1619,7 +1588,7 @@ MTS_IMPLEMENT_CLASS_S(FwdDip, false, DirectSamplingSubsurface);
 MTS_IMPLEMENT_CLASS(FwdDipSmallLengthSamplerPerpToDir, false, TangentSampler2D);
 MTS_IMPLEMENT_CLASS(FwdDipSmallLengthSamplerAlongDir, false, TangentSampler2D);
 MTS_IMPLEMENT_CLASS(FwdDipSmallLengthRadialSampler2D, false, Sampler1D);
-MTS_IMPLEMENT_CLASS(PhaseFunctionSurfaceSampler, false, SurfaceSampler);
+MTS_IMPLEMENT_CLASS(RayDirectionSurfaceSampler, false, SurfaceSampler);
 MTS_EXPORT_PLUGIN(FwdDip, "Forward scattering dipole model based on a "
         "functional integral approximation");
 MTS_NAMESPACE_END

@@ -7,6 +7,5 @@ plugins += env.SharedLibrary('kkay', ['kkay.cpp'])
 plugins += env.SharedLibrary('microflake', ['microflake.cpp'])
 plugins += env.SharedLibrary('mixturephase', ['mixturephase.cpp'])
 plugins += env.SharedLibrary('forward_gaussian', ['forward_gaussian.cpp'])
-plugins += env.SharedLibrary('fwddip_helper', ['fwddip_helper.cpp'])
 
 Export('plugins')
