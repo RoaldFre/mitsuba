@@ -3,10 +3,11 @@
 #include <mitsuba/core/properties.h>
 #include <mitsuba/core/warp.h>
 #include <mitsuba/core/quad.h>
+#include <mitsuba/core/vmf.h>
 
 MTS_NAMESPACE_BEGIN
 
-/*!\plugin{forward_gaussian}{Strongly forward scattering Gaussian phase function}
+/*!\plugin{forward_gaussian}{Strongly forward scattering Gaussian (VMF) phase function}
  * \order{2}
  * \parameters{
  *     \parameter{g}{\Float}{
@@ -26,8 +27,9 @@ public:
     ForwardGaussianPhaseFunction(const Properties &props)
         : PhaseFunction(props) {
         m_g = props.getFloat("g", 0.9f);
-        //if (m_g >= 1 || m_g <= 0)
-        if (m_g >= 1 || m_g < 0) // relax the g=0 edge case for testing purpose (in principle we could also de backscattering for g in (-1,1))
+        /* Relax the g=0 edge case for testing purpose (in principle we 
+         * could also do backscattering for g in (-1,1)): */
+        if (m_g >= 1 || m_g < 0)
             Log(EError, "The asymmetry parameter must lie in the interval "
                     "(0, 1) and ideally be close to 1!");
     }
@@ -42,30 +44,15 @@ public:
 
     void serialize(Stream *stream, InstanceManager *manager) const {
         PhaseFunction::serialize(stream, manager);
-
         stream->writeFloat(m_g);
     }
 
     void configure() {
         PhaseFunction::configure();
         m_type = EAngleDependence;
-        // TODO: support negative g as well
-        if (m_g > 0.96) {
-            // Expansion mu -> 0
-            m_mu = 0.75 - 0.25*sqrt(24*m_g - 15);
-        } else if (m_g < 0.023) {
-            // Expansion mu -> infty
-            const Float pi2 = M_PI*M_PI;
-            const Float pi4 = pi2*pi2;
-            m_mu = (pi2 + sqrt(pi4 - 16*pi2*m_g))/(32 * m_g);
-        } else {
-            // Rational Chebychev approximation
-            const Float g = m_g;
-            const Float g2 = g*g;
-            const Float g3 = g2*g;
-            m_mu = (1.67795885157-1.58282020037*g-0.951964559365e-1*g2)
-            /(0.611648897428e-4+2.71722238539*g-1.42102908810*g2+.477385217310*g3);
-        }
+        m_mu = 1/VonMisesFisherDistr::forMeanCosine(m_g);
+        Log(EInfo, "mu = %f (g = %f)", m_mu, m_g);
+
         m_samplingFactor = math::fastexp(-2/m_mu);
         Float pdfNormalization = INV_TWOPI / (m_mu * (2*sinh(1/m_mu)));
         m_pdfLogNormalization = log(pdfNormalization);
@@ -157,13 +144,13 @@ public:
 
     MTS_DECLARE_CLASS()
 private:
-    Float m_g; /// mean squared cosine
-    Float m_mu; /// angular variance
+    Float m_g; /// mean cosine
+    Float m_mu; /// 1/kappa in 'VMF-speak'
     Float m_pdfLogNormalization; /// Cache for normalization constant of the pdf
     Float m_samplingFactor; /// Cache for factor that gets used in the sampling routine
 };
 
 MTS_IMPLEMENT_CLASS_S(ForwardGaussianPhaseFunction, false, PhaseFunction)
 MTS_EXPORT_PLUGIN(ForwardGaussianPhaseFunction,
-        "Strongly forward scattering Gaussian phase function");
+        "Strongly forward scattering Gaussian (VMF) phase function");
 MTS_NAMESPACE_END
