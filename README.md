@@ -1,22 +1,55 @@
-Mitsuba — Physically Based Renderer
-===================================
+Mitsuba — Forward Scattering Dipole Implementation
+==================================================
 
-http://mitsuba-renderer.org/
+## About the Forward Scattering Dipole
 
-## About
+This repository implements the Forward Scattering Dipole model within the Mitsuba renderer. More information about the model can be found in the SIGGRAPH 2017 paper 'A Forward Scattering Dipole Model from a Functional Integral Approximation'
 
-Mitsuba is a research-oriented rendering system in the style of PBRT, from which it derives much inspiration. It is written in portable C++, implements unbiased as well as biased techniques, and contains heavy optimizations targeted towards current CPU architectures. Mitsuba is extremely modular: it consists of a small set of core libraries and over 100 different plugins that implement functionality ranging from materials and light sources to complete rendering algorithms.
+Project page: http://graphics.cs.kuleuven.be/publications/FD17FSDM/
 
-In comparison to other open source renderers, Mitsuba places a strong emphasis on experimental rendering techniques, such as path-based formulations of Metropolis Light Transport and volumetric modeling approaches. Thus, it may be of genuine interest to those who would like to experiment with such techniques that haven't yet found their way into mainstream renderers, and it also provides a solid foundation for research in this domain.
+Note: the importance sampling routines in this repository have been improved considerably compared to the version that was published in the original paper.
 
-The renderer currently runs on Linux, MacOS X and Microsoft Windows and makes use of SSE2 optimizations on x86 and x86_64 platforms. So far, its main use has been as a testbed for algorithm development in computer graphics, but there are many other interesting applications.
 
-Mitsuba comes with a command-line interface as well as a graphical frontend to interactively explore scenes. While navigating, a rough preview is shown that becomes increasingly accurate as soon as all movements are stopped. Once a viewpoint has been chosen, a wide range of rendering techniques can be used to generate images, and their parameters can be tuned from within the program.
+## Dependencies
 
-## Documentation
+All the usual dependencies of Mitsuba with an additional dependency on GSL (the Gnu Scientific Library). See the [official Mitsuba documentation](http://mitsuba-renderer.org/docs.html) for more information.
 
-For compilation, usage, and a full plugin reference, please see the [official documentation](http://mitsuba-renderer.org/docs.html).
 
-## Releases and scenes
+## How to Build
 
-Pre-built binaries, as well as example scenes, are available on the [Mitsuba website](http://mitsuba-renderer.org/download.html).
+Get the repository:
+
+    $ hg clone https://github.com/roaldfre/mitsuba-fwddip
+
+The forward scattering dipole code lives in the fwddip branch.
+
+    $ hg update fwddip
+
+Select a build configuration (currently, only the gcc profile for double 
+precision is fully supported)
+    
+    $ cp build/config-linux-gcc-double.py config.py
+
+Alternatively, if you want spectral rendering (e.g. to render a realistic skin 
+material), you can choose a spectral build profile:
+
+    $ cp build/config-linux-gcc-spectral-double.py config.py
+
+Once you have chosen a build profile, start the build process (e.g. assuming 
+four cores)
+
+    $ scons -j 4
+
+Add the proper directories to the `$PATH` (e.g. assuming sh/bash shell)
+
+    $ . setpath.sh
+
+You should now be able to run the 'mitsuba' and 'mtsgui' commands (and several 
+others).
+
+
+## Using the Forward Scattering Dipole Model
+
+You can find documented example scenes on the project page: 
+http://graphics.cs.kuleuven.be/publications/FD17FSDM/
+
