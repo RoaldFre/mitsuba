@@ -81,7 +81,12 @@ inline Float truncnormPdf(const Float _mean,
     double c_stdhi = (hi - mean) / sd; // standarized bound
     double c_stdlo = (lo - mean) / sd; // standarized bound
     double c_stdz  = (z - mean) / sd; // standarized sample
-    if (c_stdhi > -8.) { // in this case: full erf expression should be sufficiently stable
+#ifdef DOUBLE_PRECISION
+    const double c_stdhiThreshold = -7;
+#else
+    const double c_stdhiThreshold = -4;
+#endif
+    if (c_stdhi > c_stdhiThreshold) { // in this case: full erf expression should be sufficiently stable
         double absoluteExpArgument = 0.5 * pow((z - mean) / sd, 2);
         double erfDiff = math::erf((hi - mean)/(SQRT_TWO*sd))
                        - math::erf((lo - mean)/(SQRT_TWO*sd));
