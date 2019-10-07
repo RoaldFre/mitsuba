@@ -987,8 +987,6 @@ public:
             m_dipoleMode = FwdScat::ERealAndVirt;
         }
 
-        m_winklerCorrection = props.getBoolean("winklerCorrection", false);
-
         m_useEffectiveBRDF = props.getBoolean("useEffectiveBRDF", false);
 
         lookupMaterial(props, m_sigmaS, m_sigmaA, m_g, &m_eta);
@@ -1025,7 +1023,6 @@ public:
         m_zvMode = static_cast<FwdScat::ZvMode>(stream->readInt());
         m_dipoleMode = static_cast<FwdScat::DipoleMode>(stream->readInt());
         m_useEffectiveBRDF = stream->readBool();
-        m_winklerCorrection = stream->readBool();
         configure();
     }
 
@@ -1040,7 +1037,6 @@ public:
         stream->writeInt(m_zvMode);
         stream->writeInt(m_dipoleMode);
         stream->writeBool(m_useEffectiveBRDF);
-        stream->writeBool(m_winklerCorrection);
     }
 
 
@@ -1369,15 +1365,7 @@ public:
         Vector n_out = its_out.shFrame.n;
         Vector n_in  = its_in.shFrame.n;
 
-        /* Sample an incoming direction (on our side of the medium)
-         * (This is the only difference with respect to the default
-         * implementation in DirectSamplingSubsurface) -- TODO introduce a
-         * sampleDirection function? (note: it could be that instead of
-         * first sampling a point on the surface, then sampling additional
-         * parameters and then sampling an outgoing direction, we want to
-         * sample the direction first, then additional params, then point
-         * on surface -- or additional params at very beginning or end, in
-         * general ...) */
+        /* Sample an incoming direction (on our side of the medium) */
         Float directionPdf = sampleDirection(d_out, n_out, n_in, p_out - p_in,
                 getLengths(extraParams), d_in, throughput, sampler);
         its_in.wi = its_in.toLocal(d_in);;
@@ -1422,14 +1410,12 @@ public:
             // Effective 1D problem as far as spectral channels are concerned
             m_fwdScat.resize(1);
             m_fwdScat[0] = new FwdScat(
-                    m_g.min(), m_sigmaS.min(), m_sigmaA.min(), m_eta, 
-                    m_winklerCorrection);
+                    m_g.min(), m_sigmaS.min(), m_sigmaA.min(), m_eta);
         } else {
             m_fwdScat.resize(SPECTRUM_SAMPLES);
             for (int i = 0; i < SPECTRUM_SAMPLES; i++)
                 m_fwdScat[i] = new FwdScat(
-                        m_g[i], m_sigmaS[i], m_sigmaA[i], m_eta,
-                        m_winklerCorrection);
+                        m_g[i], m_sigmaS[i], m_sigmaA[i], m_eta);
         }
 
         Spectrum sigmaSPrime = m_sigmaS * (Spectrum(1.0f) - m_g);
@@ -1565,7 +1551,6 @@ private:
     FwdScat::ZvMode m_zvMode;
     FwdScat::DipoleMode m_dipoleMode;
     bool m_useEffectiveBRDF;
-    bool m_winklerCorrection;
     // Initialized by configure():
     ref_vector<FwdScat> m_fwdScat;
 

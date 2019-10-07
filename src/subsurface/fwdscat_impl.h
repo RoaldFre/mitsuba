@@ -55,107 +55,35 @@ FINLINE Float roundCosThetaForStability(Float cosTheta,
     return _reducePrecisionForCosTheta(cosTheta);
 }
 
+FINLINE double FwdScat::absorptionAndNormalizationConstant(Float theLength) const {
+    const double p = 0.5 * sigma_s * mu;
+    const double ps = p * theLength;
 
-
-/// Already has the 3/2 winkeler correction and assumes D*(1-dot(u0,uL)) (and 'C=0') instead of -D*dot(u0*uL) (and nonzero C to keep N from exploding)
-FINLINE double FwdScat::absorptionAndNormalizationConstant2(Float theLength) const {
-    const double sig = sqrt(1.5) * sigma_s * mu; // \bar{sigma}
-    const double ss = sig * theLength; // \bar{sigma} * s
     double result;
-    if (ss < 0.04) {
+    if (ps < 0.006) {
         // protect against overflows in the exp()'s
-        const double c0 = 18.*sqrt(3.)*std::pow(6.,0.25);
-        const double c1 = 33.*sqrt(3.)*pow(6.,0.75)/10.;
-        const double c2 = 303.*sqrt(3.)*pow(6.,0.25)/200.;
-        const double c3 = -25483.*sqrt(3.)*pow(6.,0.75)/84000.;
-        result = 0.25 / std::pow(M_PI_DBL, 2.5) * exp(-sigma_a*theLength)
-                * std::pow(ss, -11./2) * (c0 + c1*ss + c2*ss*ss + c3*ss*ss*ss);
-        result *= sig*sig*sig; // from \bar{sigma}=1 back to the real value
+        const double c0 = 81./32;
+        const double c1 = 891./320;
+        const double c2 = 8721./6400;
+        const double c3 = -374841./448000;
+        result = p*p*p * SQRT_TWO_DBL * std::pow(M_PI_DBL, -2.5) * exp(-sigma_a*theLength)
+                * std::pow(ps, -11./2) * (c0 + c1*ps + c2*ps*ps + c3*ps*ps*ps);
     } else {
-        double C, D, E, F, CminD, Z;
-        calcValues2(theLength, C, D, E, F, &CminD, &Z);
+        double C, D, E, F, Z;
+        calcValues(theLength, C, D, E, F, &Z);
         double ZoverExpMinOne; // = Z / (exp(Z) - 1)
-        if (Z < 0.01) {
-            // small Z corresponds to limit of large ss
-            ZoverExpMinOne = 1. + 0.5*Z + 1./12.*Z*Z;
+        if (Z < 0.002) {
+            // small Z corresponds to limit of large ps
+            ZoverExpMinOne = 1. + 0.5*Z + 1./12.*Z*Z - 1./720*Z*Z*Z*Z;
         } else {
             ZoverExpMinOne = Z / (exp(Z) - 1);
         }
-        result = 0.25 / std::pow(M_PI_DBL, 2.5) * exp(CminD - sigma_a*theLength)
+        result = 0.25 / std::pow(M_PI_DBL, 2.5) * exp(C - D - sigma_a*theLength)
                 * sqrt(F) * F * ZoverExpMinOne;
     }
 
 #ifdef MTS_FWDSCAT_DEBUG
     if (!std::isfinite(result) || result < 0) {
-        Log(EWarn, "problem with analytical normalization at ss %e: %e",
-                sqrt(1.5) * sigma_s * mu * theLength, result);
-    }
-#endif
-    FSAssert(result >= 0);
-
-    return result;
-}
-
-/// XXX the limits have a wrong constant scaling ... (compare with v2 for m_winklerCorrection)
-FINLINE double FwdScat::absorptionAndNormalizationConstant(Float theLength) const {
-    double p = 0.5 * sigma_s * mu;
-    if (m_winklerCorrection) {
-#if 1
-        return absorptionAndNormalizationConstant2(theLength);
-#else
-        // or 'hack' to use our code below:
-        p *= sqrt(1.5); // TODO to counter typo in Winkeler formula... -- XXX expansions below still inconsistent!
-#endif
-    }
-    double ps = p * theLength;
-
-    double result;
-    if (ps < 0.03) {
-        double ps2 = ps*ps;
-        double ps3 = ps2*ps;
-        result = sqrt(2.0) * std::pow(M_PI_DBL, -2.5)
-                * std::pow(ps, -11./2.) * (
-                    81./32. + 243./64.*ps + 3429./1280.*ps2 - 243./2560.*ps3);
-        result *= p*p*p; // from p=1 back to the real p value;
-        result *= math::fastexp(-sigma_a*theLength);
-    } else if (ps > 11) { // quickly to avoid cancellation in denominator of full expression!
-        double psi1 = 1.0/ps;
-        double psi2 = psi1*psi1;
-        double psi3 = psi2*psi1;
-        double psi4 = psi3*psi1;
-        result = std::exp(1.5)*sqrt(6.0)*3./2048. * std::pow(M_PI_DBL, -2.5)
-                * std::pow(ps, -3./2.) * (
-                    128 + 129*psi1 + 240*psi2 + 280*psi3 + 315*psi4);
-        result *= p*p*p; // from p=1 back to the real p value;
-        result *= math::fastexp(-sigma_a*theLength);
-        result *= 0.25; // XXX this factor was missing for some time!
-    } else {
-        double C, D, E, F;
-        calcValues(theLength, C, D, E, F);
-        double denomExpArg = E*E/F - 2*D; /* cancellation problem, so quickly go to large ps
-                                             expansion TODO: rewrite in terms of A&B to avoid
-                                             cancellation */
-        double denom = math::abs(denomExpArg) > 1e-3
-                ? exp(denomExpArg) - 1
-                : denomExpArg*(1 + denomExpArg*(0.5 + denomExpArg*1./6.));
-        result = 0.25 / std::pow(M_PI_DBL, 2.5)
-                * sqrt(F) * (E*E - 2*D*F) * exp(C - D - sigma_a*theLength)
-                / denom;
-#ifdef MTS_FWDSCAT_DEBUG
-        FSAssertWarn(std::isfinite(exp(D + C)));
-        FSAssertWarn(std::isfinite(exp(2*D)));
-        FSAssertWarn(std::isfinite(exp(E*E/F)));
-        // denom
-        // XXX disabled for now, as this is on the edge and triggers often.....
-        //CancellationCheck(E*E/F, -2*D); /* need to switch to large ps expansion
-        //                                   sufficiently fast, see above */
-        // exp in result:
-        CancellationCheck(C, -D);
-#endif
-    }
-
-#ifdef MTS_FWDSCAT_DEBUG
-    if (!std::isfinite(result)) {
         Log(EWarn, "problem with analytical normalization at ps %e: %e",
                 ps, result);
     }
@@ -165,182 +93,71 @@ FINLINE double FwdScat::absorptionAndNormalizationConstant(Float theLength) cons
     return result;
 }
 
-FINLINE void FwdScat::calcValues(double length, double &C, double &D, double &E, double &F) const {
+/**
+ * Note: compared to the paper/dissertation: these are dimensionful, so 
+ * with appropriate factors of p inserted!
+ *
+ * \param Z   Z = E^2/F - 2*D (which is > 0 and dimensionless;
+ *            in terms of t: Z = 6t/(1-t^2))
+ */
+FINLINE void FwdScat::calcValues(double length, double &C, double &D, 
+        double &E, double &F, double *Z_ptr) const {
     FSAssert(length >= 0);
     FSAssert(mu > 0 && mu <= 1);
     FSAssert(sigma_s > 0);
     FSAssert(length >= 0);
 
     double p = 0.5 * mu * sigma_s;
-    if (m_winklerCorrection) {
-#if 0
-        calcValues2(length, C, D, E, F);
-        return;
-#else
-        // hack to get the old code below to work with the correction
-        p *= sqrt(1.5); // TODO to counter typo in Winkeler formula...
-#endif
-    }
     double s = length;
     double ps = p*s;
+    double ps2 = ps*ps;
+    double ps3 = ps2*ps;
+    double ps5 = ps2*ps3;
 
-    /* TODO/NOTE: C is independent of R,u0,uL eventually, so purely
-     * a normalization problem!
-     * We could drop C, but that has the effect of exploding the
+    /* NOTE: C is independent of R,u0,uL, so purely a normalization 
+     * problem! We could drop C, but that has the effect of exploding the
      * normalization constant exponential beyond double precision range for
-     * small p*s. So we currently keep it as a help for numerical stability.
-     * (Maybe a reduced form leads to something that is still managable and
-     * allows for a simpler normalization function fit?) Either way, the
-     * nu0 term in C is simply dropped */
+     * small p*s. So we currently keep it as a help for numerical 
+     * stability. */
 
-    if (ps < 0.001) {
-        /* Expansion accurate up to a range of 6 orders of ps */
-        C = 3./ps; // + 0.4*ps - 11./525.*ps*ps*ps;
-        D = 1.5/ps - 0.1*ps + 13./1050.*ps*ps*ps;
-        E = p * (4.5/(ps*ps) + 0.3 - 3./350*ps*ps);
-        F = p*p * (4.5/(ps*ps*ps) + 1.8/ps - 3./350*ps);
-    } else if (ps > 1.0/0.001) {
-        /* Expansion accurate up to a range of 'all' orders of 1/ps (exact
-         * geometric series) */
-        double series = 1.0 / (ps - 1.0); // = 1/ps + 1/ps^2 + 1/ps^3 + ...
-        C = 3./ps; //1.5 + 0.75 * series;
-        D = 0.75 * series;
-        E = p * 1.5 * series;
-        F = p*p * 1.5 * series;
+    double t = exp(-2*ps);
+    double t2 = t*t;
+    double Z;
+    C = 3./ps;
+    // Set (D,)E,F(,Z) to their dimension*less* values (as in paper/text)
+    if (ps < 0.3) { // (t > 0.5)
+        /* At least 8 digits accuracy */
+        D =  1.5/ps - 0.1*ps + 13./1050*ps3 - 11./7875*ps5;
+        E = (4.5/ps + 0.3*ps -  3./350 *ps3) / ps;
+        F = (4.5/ps + 1.8*ps -  3./350 *ps3) / ps2;
+        Z = E*E/F - 2*D; // well-conditioned in this regime in terms of E,F,D
+    } else if (ps > 9) { // t < 10^-8
+        /* We can directly set t=exp(-2ps)=0 in this regime */
+        double tmp = 1.0 / (ps - 1.0);
+        D = 0.75 * tmp;
+        E = 1.50 * tmp;
+        F = 1.50 * tmp;
+        Z = 6*t / (1 - t2); // full expression in terms of t is stable for large ps
     } else {
         /* Exact solutions, in a ps range that is safe from numerical problems */
-        double TH = tanh(p*s);
-        double SH = sinh(2*p*s);
-
-        double A=1/(s/p - TH/(p*p));
-        double B=TH/(2*p);
-
-        CancellationCheck(3*A*B*B, -3/(2*SH));  // D
-        C=3/ps;
-        D=3*A*B*B - 3/(2*SH);
-        E=3*A*B;
-        F=3*A/2;
+        D = 0.75 * (1 - 4*ps*t - t2) / (ps - 1 + 2*t - (ps + 1)*t2);
+        E = 1.50 * (1 - t) / (ps - 1 + (ps + 1)*t);
+        F = 1.50 * (1 + t) / (ps - 1 + (ps + 1)*t);
+        Z = 6*t / (1 - t2);
     }
+    // From dimensionless to dimension*ful* here (e.g. displacement vector R instead of r)
+    E *= p;
+    F *= p*p;
 
-    if (m_winklerCorrection) {
-        // TODO to counter typo in Winkeler formula...
-        C *= sqrt(2./3.);
-        D *= sqrt(2./3.);
-        E *= sqrt(2./3.);
-        F *= sqrt(2./3.);
-
-
-        double ss = sqrt(1.5) * sigma_s * mu * s; // \bar{sigma} * s
-        double D_exp, E_exp, F_exp;
-        if (ss < 1e-3) {
-            D_exp =   sqrt(1.5)   * 2/ss - 1./30*ss + 13./12600*ss*ss*ss;
-            E_exp =   sqrt(1.5)   * 6/ss + 0.1*ss - 1./1400*ss*ss*ss;
-            F_exp = 0.5*sqrt(1.5) * 12/ss + 6./5.*ss - 1./700*ss*ss*ss;
-        } else if (ss > 1e3) {
-            double series = 0.5 / (0.5*ss - 1);
-            D_exp =   sqrt(1.5)         * series;
-            E_exp =   sqrt(1.5)   * ss  * series;
-            F_exp = 0.5*sqrt(1.5)*ss*ss * series;
-        } else {
-            double t = exp(-ss);
-            double t2 = t*t;
-            D_exp = sqrt(1.5) * (1 - t2 - 2*ss*t) / (ss - 2 + 4*t - (ss + 2)*t2);
-            E_exp =     sqrt(1.5) * ss  * (1 - t) / (ss - 2 + (ss + 2)*t);
-            F_exp = 0.5*sqrt(1.5)*ss*ss * (1 + t) / (ss - 2 + (ss + 2)*t);
-        }
-        // We are dimensionful here (e.g. displacement vector R instead of r)
-        E_exp /= s;
-        F_exp /= s*s;
-
-
-        if (false) {
-            if (math::abs((D - D_exp)/(D + D_exp)) > 1e-4) {
-                cout << "ss: "<< ss << endl;
-                cout << "D: " << D / D_exp << endl;
-                cout << "D: " << D << " " << D_exp << endl;
-            }
-            if (math::abs((E - E_exp)/(E + E_exp)) > 1e-4) {
-                cout << "ss: "<< ss << endl;
-                cout << "E: " << E / E_exp << endl;
-                cout << "E: " << E << " " << E_exp << endl;
-            }
-            if (math::abs((F - F_exp)/(F + F_exp)) > 1e-4) {
-                cout << "ss: "<< ss << endl;
-                cout << "F: " << F / F_exp << endl;
-                cout << "F: " << F << " " << F_exp << endl;
-            }
-        }
-    }
+    if (Z_ptr)
+        *Z_ptr = Z;
 
     FSAssert(C >= 0);
     FSAssert(D >= 0);
     FSAssert(E >= 0);
     FSAssert(F >= 0);
-}
-
-/**
- * Already contains the 3/2 winkler correction
- * CminD = C - D
- * Z = E^2/F - 2*D (which is > 0)
- */
-FINLINE void FwdScat::calcValues2(double length, double &C, double &D, double &E, double &F,
-        double *CminDptr, double *Zptr) const {
-    FSAssert(length >= 0);
-    FSAssert(mu > 0 && mu <= 1);
-    FSAssert(sigma_s > 0);
-    FSAssert(length >= 0);
-
-    double s = length;
-    double ss = sqrt(1.5) * sigma_s * mu * s; // \bar{sigma} * s
-    double t = exp(-ss);
-    double t2 = t*t;
-    double Z, CminD;
-    C = 2 * sqrt(6.) / ss;
-    if (ss < 0.3) {
-        double ss3 = ss*ss*ss;
-        double ss5 = ss3*ss*ss;
-        D =   sqrt(1.5)   * (2/ss  - 1./30*ss + 13./12600*ss3);
-        E =   sqrt(1.5)   * (6/ss  +  0.1*ss - 1./1400*ss3);
-        F = 0.5*sqrt(1.5) * (12/ss + 6./5*ss -  1./700*ss3);
-        Z =    sqrt(6)    * (1/ss  - 1./6*ss +  7./360*ss3 + 31./15120*ss5);
-    } else if (ss > 30) {
-        double series = 0.5 / (0.5*ss - 1);
-        D =   sqrt(1.5)         * series;
-        E =   sqrt(1.5)   * ss  * series;
-        F = 0.5*sqrt(1.5)*ss*ss * series;
-        Z = 2*sqrt(6.)  *  t / (1 - t2); // full expression is stable for large ss
-    } else {
-        // TODO: Some kind of cheaper approximation? (Chebychev? Rational?)
-        D = sqrt(1.5) * (1 - t2 - 2*ss*t) / (ss - 2 + 4*t - (ss + 2)*t2);
-        E =     sqrt(1.5) * ss  * (1 - t) / (ss - 2 + (ss + 2)*t);
-        F = 0.5*sqrt(1.5)*ss*ss * (1 + t) / (ss - 2 + (ss + 2)*t);
-        Z = 2*sqrt(6.)  *  t / (1 - t2);
-    }
-    CminD = C - D; // stable throughout the range
-    if (CminDptr)
-        *CminDptr = CminD;
-    if (Zptr)
-        *Zptr = Z;
-
-    // We are dimensionful here (e.g. displacement vector R instead of r):
-    E /= s;
-    F /= s*s;
-
-    FSAssert(D >= 0);
-    FSAssert(E >= 0);
-    FSAssert(F >= 0);
-    FSAssert(CminD >= 0);
     FSAssert(Z >= 0);
-
-#if 0
-    double Ccheck, Dcheck, Echeck, Fcheck;
-    calcValues(length, Ccheck, Dcheck, Echeck, Fcheck);
-    //SLog(EInfo, "%f %f %f %f", C/Ccheck, D/Dcheck, E/Echeck, F/Fcheck);
-    //SLog(EInfo, "%f", Z/(Echeck*Echeck/Fcheck-2*Dcheck));
-    //SLog(EInfo, "%f", CminD/(Ccheck-Dcheck));
-#endif
 }
-
 
 
 /// if rejectInternalIncoming is requested: returns false if we should stop
@@ -1467,27 +1284,13 @@ FINLINE void FwdScat::implDirectionBoundaryAwareMonopole_BRDF(
      */
     FSAssert(R.isZero() || math::abs(dot(R,n0)) > 0.999 * R.length());
 
-    double a, b, c;
-    if (m_winklerCorrection) {
-        double C, D, E, F, Z;
-        calcValues2(s, C, D, E, F, NULL, &Z);
+    double C, D, E, F, Z;
+    calcValues(s, C, D, E, F, &Z);
 
-        a = 0.5 * Z * dot(woi,x);
-        CancellationCheck(D * dot(woi,z), E*dot(R,z));
-        b = D * dot(woi,z) + E*dot(R,z);
-        c = 0.25*E*E/F;
-    } else {
-        double C, D, E, F;
-        calcValues(s, C, D, E, F);
-
-        /* TODO: D - 0.5E^2/F has cancellation problem and should be rewritten.
-         * It's barely hanging by its teeth in double precision. */
-        //CancellationCheck(D, -0.5*E*E/F);
-        a = (D - 0.5*E*E/F) * dot(woi,x);
-        CancellationCheck(D * dot(woi,z), E*dot(R,z));
-        b = D * dot(woi,z) + E*dot(R,z);
-        c = 0.25*E*E/F;
-    }
+    double a = 0.5 * Z * dot(woi,x);
+    CancellationCheck(D * dot(woi,z), E*dot(R,z));
+    double b = D * dot(woi,z) + E*dot(R,z);
+    double c = 0.25*E*E/F;
 
     if (math::abs(a) < 1e-4) {
         a = 0;

@@ -21,10 +21,8 @@ class MTS_EXPORT FwdScat : public Object {
 public:
     MTS_DECLARE_CLASS();
 
-    FwdScat(Float g, Float sigma_s, Float sigma_a, Float eta,
-            bool winklerCorrection = true) :
-                mu(1 - g), sigma_s(sigma_s), sigma_a(sigma_a), m_eta(eta), 
-                m_winklerCorrection(winklerCorrection) {
+    FwdScat(Float g, Float sigma_s, Float sigma_a, Float eta) :
+                mu(1 - g), sigma_s(sigma_s), sigma_a(sigma_a), m_eta(eta) {
         if (g < 0 || g >= 1) {
             Log(EError, "Valid values for g are in [0,1). "
                     "Sensible values are close to 1.");
@@ -37,7 +35,6 @@ public:
                 <<", sigma_s="<<sigma_s
                 <<", sigma_a="<<sigma_a
                 <<", eta="<<m_eta
-                <<", winklerCorr="<<m_winklerCorrection
                 <<"]";
         return oss.str();
     }
@@ -94,12 +91,9 @@ public:
             Vector n, Float Rz, Float length) const;
 
 protected:
-    void calcValues(double length, double &C, double &D, double &E, double &F) const;
-    void calcValues2(double length, double &C, double &D, double &E, double &F,
-            double *CminDptr = NULL, double *Zptr = NULL) const;
-
+    void calcValues(double length, double &C, double &D, double &E, double &F,
+            double *Z=NULL) const;
     double absorptionAndNormalizationConstant(Float theLength) const;
-    double absorptionAndNormalizationConstant2(Float theLength) const;
 
     bool getVirtualDipoleSource(
             Normal n0, Vector u0,
@@ -200,10 +194,6 @@ protected:
      * boundary conditions, as opposed to an explicit 'index matched'
      * (m_eta = 1) coupling to a proper BSDF as boundary.  */
     const Float m_eta;
-
-    /** Correct for missing 3/2 factor in Winkler et al. eq (4.14) [and 
-     * (4.12)]? */
-    const bool m_winklerCorrection; 
 };
 
 MTS_NAMESPACE_END
