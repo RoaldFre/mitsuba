@@ -129,8 +129,6 @@ protected:
             Vector R, Vector uL, Float &s, Sampler *sampler, Float *pdf) const;
     void implLengthShortLimitMargOverU0_internal(
             Vector R, Vector uL, Float &s, Sampler *sampler, Float *pdf, Float safetyFac) const;
-    void implLengthShortLimitMargOverU0_oldVersion(
-            Vector R, Vector uL, Float &s, Sampler *sampler, Float *pdf) const;
 
     /// Returns the pdf
     Float sampleLengthLongLimit(

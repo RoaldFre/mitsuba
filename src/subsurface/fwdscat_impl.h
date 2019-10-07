@@ -607,7 +607,6 @@ FINLINE Float FwdScat::pdfLengthShortLimit(
 FINLINE void FwdScat::implLengthShortLimit(
         Vector R, const Vector *u0, Vector uL, Float &s, Sampler *sampler, Float *pdf) const {
     if (u0 == NULL) {
-        //implLengthShortLimitMargOverU0_oldVersion(R, uL, s, sampler, pdf);
         implLengthShortLimitMargOverU0(R, uL, s, sampler, pdf);
     } else {
         implLengthShortLimitKnownU0(R, *u0, uL, s, sampler, pdf);
@@ -724,116 +723,6 @@ FINLINE void FwdScat::implLengthShortLimitKnownU0(
 
         // transform from pdf(t = (ps)^(-3)) to pdf(ps) [factor 3*(ps)^-4] & go back to p!=1 [factor p]
         *pdf = tPdf * 3 / (ps*ps*ps*ps) * p;
-    }
-}
-
-FINLINE void FwdScat::implLengthShortLimitMargOverU0_oldVersion(
-        Vector R, Vector uL, Float &s, Sampler *sampler, Float *pdf) const {
-    // Working in p=1, transforming back at the end
-    Float p = 0.5*sigma_s*mu;
-    Float lRl = R.length();
-    Float r = lRl * p;
-    Float r2 = r*r;
-    Float cosTheta = math::clamp(dot(R, uL) / lRl, (Float)-1, (Float)1);
-
-    /* TODO:
-     *
-     * (1) This is not very sensible for r > 1 (set this strategy's MIS
-     * weight to 0 then?)
-     *
-     * (2) The case r=0 can happen for an effective BRDF -> handle that
-     * better by relaxing the cosTheta=1 assumption in derivation? Even
-     * better: make dedicated sampler (which will have different s
-     * behaviour, presumably) */
-    //if (r == 0 || r > 1) {
-    if (r == 0) {
-        if (pdf) *pdf = 0;
-        if (sampler) s = 0;
-        return;
-    }
-
-
-    Float invps_mean; // the critical point (t* in the suppl. mat. of the paper)
-#if 1 /* Exact, fully cosTheta-dependent solution from Maple codegen (true), or
-         crude, easy to evaluate approximation (false) */
-    // Maple codegen for (the real part of) the root that we want
-    double t1 = 1. / r;
-    double t5 = cosTheta * cosTheta;
-    double t6 = cosTheta * t5;
-    double t7 = t6 * r;
-    double t9 = t5 * t5;
-    double t11 = t5 * r;
-    double t14 = r * r;
-    double t16 = r * cosTheta;
-    double t20 = 96 * t7 - 4 * t9 + 180 * t11 - 20 * t6 + 243 * t14
-            - 36 * t16 - 28 * t5 - 120 * r + 16;
-    double t21 = abs(t20);
-    double t22 = sqrt(t21);
-    double t23 = (t20 > 0) - (t20 < 0); // =signum(t20): (t20>0 ? 1 : (t20<0 ? -1 : 0));
-    double t24 = t23 * t22;
-    double t25 = sqrt(30);
-    double t34 = t25 * t22;
-    double t45 = -288 * cosTheta * t25 * t24 + 3888 * r * t34 - 960 * t23 * t34
-            + 1440 * t5 * t34 + 768 * t6 * t34 - 288 * cosTheta * t34 + 77760 * t11
-            - 15552 * t16 + 216 * t21 + 41472 * t7 + 3840 * cosTheta + 6400;
-    double t65 = t23 * t23;
-    double t68 = 3888 * r * t25 * t24 + 1440 * t5 * t25 * t24
-            + 768 * t6 * t25 * t24 + 216 * t65 * t21 + 4096 * t5 * t9
-            + 15360 * cosTheta * t9 - 51840 * r + 104976 * t14
-            - 960 * t34 - 18624 * t5 - 16000 * t6 + 11328 * t9;
-    double t70 = pow(t45 + t68, 1.0 / 6.0);
-    double t83 = atan2(6 * (1 - t23) * t34, (64 * t6) + 6 * (1 + t23) * t34
-            + (120 * t5) + (324 * r) - 24 * cosTheta - 80);
-    double t85 = cos(t83 / 3);
-    invps_mean = 2. / 9. * cosTheta * t1 + 2. / 9. * t1 + t85 * t70 * t1 / 18
-            + t85 / t70 * t1 * (16 * t5 + 20 * cosTheta - 8) / 18;
-    // Note: t70 can give problems for negative values!
-    if (!std::isfinite(invps_mean) || invps_mean <= 0) {
-        invps_mean=1/r; // Heuristic 'guess' to not 'waste' a sample
-    }
-#else
-    /* Simplest possible choice. This is accurate up to 10% relative
-     * accuracy (and becomes more accurate for r->0). */
-    Float invps_mean = 1/r;
-#endif
-
-    FSAssert(std::isfinite(invps_mean));
-    FSAssert(invps_mean > 0);
-    Float t2 = invps_mean*invps_mean;
-    Float t3 = invps_mean*t2;
-    Float var = t2 / (3 + 54*t3*r2 - 18*r*(cosTheta + 1)*t2);
-
-    if (!std::isfinite(var) || var <= 0) {
-        /* This happens when we aren't in a local maximum, but a
-         * *minimum* (var < 0)!
-         * We can bail, or set the stddev to something 'safe' ... e.g. set
-         * stddev=t just to sample *something* at least.
-         * Probably better: determine suitability beforehand and don't use
-         * this technique if it doesn't make sense. */
-        var = invps_mean*invps_mean; // just some heuristic 'guess'
-    }
-
-    const Float stddevSafetyFactor = 1;//2.5;
-    Float stddev = stddevSafetyFactor * sqrt(var);
-
-    Float invps;
-    Float ps;
-    if (sampler) {
-        do {
-            invps = truncnorm(invps_mean, stddev, 0.0, 1.0/0.0, sampler);
-        } while (invps == 0);
-        ps = 1/invps;
-        s = ps / p;
-    } else {
-        ps = p*s;
-        invps = 1/ps;
-    }
-
-    if (pdf) {
-        Float invpsPdf = truncnormPdf(invps_mean, stddev, 0.0, 1.0/0.0, invps);
-
-        // transform from pdf(1/(ps)) to pdf(ps) [factor (ps)^-2] & go back to p!=1 [factor p]
-        *pdf = invpsPdf / (ps*ps) * p;
     }
 }
 
