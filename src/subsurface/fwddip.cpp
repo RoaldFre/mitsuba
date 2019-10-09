@@ -244,7 +244,8 @@ public:
         if (p == 0 || R < 0 || R > Rmax)
             return 0;
 
-        AssertWarn(d >= dMin*(1+Epsilon) && d <= dMax*(1+Epsilon)); // check consistency of bounds (note: dMin < 0, hence the +Epsilon!)
+        // check consistency of bounds (note: dMin < 0, hence the +Epsilon!):
+        AssertWarn(d >= dMin*(1+Epsilon) && d <= dMax*(1+Epsilon));
 
         Float stddev = dMaxSafetyScale * sqrt(R*R*R/6);
         Float dPdf = truncnormPdf(0, stddev, dMin, dMax, d);
@@ -454,15 +455,18 @@ public:
     }
 
 
-    /** Trace sensing rays along -d_out to query the depth until we find 
-     *  geometry. This is a MIS combo of original and perturbed sampling (= 
-     *  small perturbations on d_out for robustness). If the initially 
-     *  chosen sampling method (perturbed vs nonperturbed) fails, then try 
-     *  the other one as well. 
+    /** 
+     * \brief Trace sensing rays along -d_out to query the depth until we find 
+     * geometry.
      *
-     *  If sampler != NULL, then sample rayDir and set the dirPdf.
-     *  If sampler == NULL, then only set the dirPdf from the given rayDir.
-     *  Returns false if we couldn't sample or compute pdf. */
+     * This is a MIS combo of original and perturbed sampling (= 
+     * small perturbations on d_out for robustness). If the initially 
+     * chosen sampling method (perturbed vs nonperturbed) fails, then try 
+     * the other one as well. 
+     *
+     * If sampler != NULL, then sample rayDir and set the dirPdf.
+     * If sampler == NULL, then only set the dirPdf from the given rayDir.
+     * Returns false if we couldn't sample or compute pdf. */
     inline bool sampleWithSensing(const Intersection &its,
             const Vector &d_out, const Scene *scene,
             const std::vector<Shape *> &shapes, int channel,
@@ -1191,7 +1195,7 @@ public:
     /// Returns pdf on the (non-cosine-weighted) hemisphere
     inline Float sampleDirectionHemisphere(
             Vector &d_in, const Vector &n_in, Sampler *sampler) const {
-        Frame frame(n_in); // TODO: could re-use shFrame...
+        Frame frame(n_in);
         Vector d_in_local = warp::squareToCosineHemisphere(sampler->next2D());
         Float cosTheta = d_in_local.z;
         d_in_local.z *= -1; // Pointing inwards
@@ -1551,8 +1555,7 @@ private:
     FwdScat::ZvMode m_zvMode;
     FwdScat::DipoleMode m_dipoleMode;
     bool m_useEffectiveBRDF;
-    // Initialized by configure():
-    ref_vector<FwdScat> m_fwdScat;
+    ref_vector<FwdScat> m_fwdScat; // Initialized by configure()
 
     struct ExtraParams {
         Float lengths[SPECTRUM_SAMPLES];

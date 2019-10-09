@@ -415,7 +415,7 @@ FINLINE Float FwdScat::evalMonopole(Vector u0, Vector uL, Vector R, Float length
             1./MTS_FWDSCAT_DIRECTION_MIN_MU : lHl;
     Float cosTheta = roundCosThetaForStability(dot(u0, Hnorm), -1, 1);
 
-    double N = absorptionAndNormalizationConstant(length); // XXX DEBUG
+    double N = absorptionAndNormalizationConstant(length);
     double G = N * exp(-C + E*dot(R,uL) + lHlreg*cosTheta - F*R.lengthSquared());
     //Non-regularized:
     //G = N * exp(-C - D*dot(u0,uL) + E*(dot(R,u0) + dot(R,uL)) - F*R.lengthSquared());
