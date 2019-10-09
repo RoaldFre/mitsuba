@@ -1,10 +1,13 @@
-Mitsuba — Adaptive Lightslice for Virtual Ray Lights Branch
-===========================================================
+Mitsuba — Adaptive Lightslice for Virtual Ray Lights (ALVRL) Branch
+===================================================================
+
+**NOTE: If you stumbled upon this repo looking for an implementation of the 
+Forward Scattering Dipole Model, checkout the fwddip branch!**
 
 ## About
 
-This branch holds the Mitsuba code for Adaptive Lightslice for Virtual Ray 
-Lights, as introduced in the paper:
+This ALVRL branch holds the Mitsuba code for Adaptive Lightslice for 
+Virtual Ray Lights, as introduced in the paper:
 
 > Frederickx Roald, Pieterjan Bartels, and Philip Dutré.  
 > "Adaptive LightSlice for Virtual Ray Lights."  
