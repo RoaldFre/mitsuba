@@ -1,6 +1,10 @@
 Mitsuba — Forward Scattering Dipole Implementation
 ==================================================
 
+**NOTE: If you stumbled upon this repo looking for an implementation of 
+Adaptive Lightslice for Virtual Ray Lights, checkout the ALVRL branch!**
+
+
 ## About the Forward Scattering Dipole
 
 This repository implements the Forward Scattering Dipole model within the Mitsuba renderer. More information about the model can be found in the SIGGRAPH 2017 paper 'A Forward Scattering Dipole Model from a Functional Integral Approximation'
@@ -19,11 +23,11 @@ All the usual dependencies of Mitsuba with an additional dependency on GSL (the 
 
 Get the repository:
 
-    $ hg clone https://github.com/roaldfre/mitsuba-fwddip
+    $ git clone https://github.com/roaldfre/mitsuba-fwddip-ALVRL
 
 The forward scattering dipole code lives in the fwddip branch.
 
-    $ hg update fwddip
+    $ git checkout fwddip
 
 Select a build configuration (currently, only the gcc profile for double 
 precision is fully supported)
