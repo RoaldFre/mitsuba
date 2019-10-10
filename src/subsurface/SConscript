@@ -5,5 +5,11 @@ plugins += env.SharedLibrary('dipole',
 
 plugins += env.SharedLibrary('fwddip', ['fwddip.cpp', 'fwdscat.cpp'])
 
+plugins += env.SharedLibrary('uncacheddipole', ['uncacheddipole.cpp'])
+
+plugins += env.SharedLibrary('dirpole', ['dirpole.cpp'])
+
+plugins += env.SharedLibrary('dEonDualBeam', ['dEonDualBeam.cpp'])
+
 plugins += env.SharedLibrary('singlescatter', ['singlescatter.cpp'])
 Export('plugins')

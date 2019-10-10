@@ -57,3 +57,11 @@ others).
 You can find documented example scenes on the project page: 
 http://graphics.cs.kuleuven.be/publications/FD17FSDM/
 
+
+## Additional Subsurface Scattering Implementations
+
+This branch also contains implementations for:
+* a classic Jensen dipole without irradiance caching (`uncacheddipole`)
+* the Dual-Beam 3D Searchlight BSSRDF of d'Eon (`dEonDualBeam`)
+* the Directional Dipole Model for Subsurface Scattering of Frisvad et al. (`dirpole`)
+
