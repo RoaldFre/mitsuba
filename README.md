@@ -23,7 +23,7 @@ All the usual dependencies of Mitsuba with an additional dependency on GSL (the 
 
 Get the repository:
 
-    $ git clone https://github.com/roaldfre/mitsuba-fwddip-ALVRL
+    $ git clone https://github.com/roaldfre/mitsuba-ALVRL-fwddip
 
 The forward scattering dipole code lives in the fwddip branch.
 
