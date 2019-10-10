@@ -227,7 +227,7 @@ public:
         m_z_D  = 0.335867*m_alpha*m_alpha - 0.62166*m_alpha + 0.944945/sqrtAlpha;
         m_z_un = 0.154352*m_alpha - Spectrum(0.142497f);
         for (int i = 0; i < SPECTRUM_SAMPLES; i++)
-            m_z_un[i] = std::max(m_z_un[i], -0.03);
+            m_z_un[i] = std::max(m_z_un[i], (Float)-0.03);
         m_a_D  = 0.359563*m_alpha*m_alpha - 0.692592*m_alpha + Spectrum(1.34954f);
         m_a_un = Spectrum(-7.7f) + (((9.8*m_alpha - Spectrum(22.8f))*m_alpha) + Spectrum(20.f))*m_alpha + 1.1/m_alpha;
 
