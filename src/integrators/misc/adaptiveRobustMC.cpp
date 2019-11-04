@@ -356,8 +356,9 @@ public:
             *meanLuminance = meanLum;
         if (stdErrLuminance)
             *stdErrLuminance = sqrt(lumVar / sampleCount); // standard error of mean
+        // Consistency check:
         Spectrum meanSpec = sumSpec / sampleCount;
-        Assert(meanLum == 0 || math::abs((meanSpec.getLuminance() - meanLum)) / meanLum < Epsilon);
+        Assert(math::abs(meanLum) <= RCPOVERFLOW || math::abs((meanSpec.getLuminance() - meanLum)) / meanLum < Epsilon);
         return sumSpec / sampleCount;
     }
 
