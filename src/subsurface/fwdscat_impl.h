@@ -869,7 +869,7 @@ FINLINE void FwdScat::implLengthShortLimitMargOverU0_internal(
 
     if (pdf) {
         Float tPdf = (uniformBackupWeight == 1 ? 0 : truncnormPdf(t_mean, t_stddev, 0.0, 1.0/0.0, t));
-        Float unifPdf = 1.0 / uniformSpan;
+        Float unifPdf = (ps < uniformSpan ? 1.0/uniformSpan : 0);
         Float psPdf = uniformBackupWeight * unifPdf
                 + (1-uniformBackupWeight) * tPdf * 5.0/2.0*pow(ps, -7.0/2.0); // <- t to ps jacobian
         *pdf = psPdf * p; // <- ps to s jacobian
